@@ -1,0 +1,231 @@
+"use client";
+import { useState } from "react";
+import { useApp, upsertLog } from "@/lib/store";
+import { useNow } from "@/lib/use-now";
+import { buildToday, type PrayerRow } from "@/lib/today";
+import { PRAYER_LABEL, type PrayerName } from "@/lib/types";
+import { formatTime } from "@/lib/prayer/times";
+import { minutesUntil } from "@/lib/prayer/state";
+import { humanCountdown, longDate } from "@/lib/format";
+import { Button, Card, cx } from "@/components/ui";
+import { CheckIn } from "@/components/check-in";
+import { IconBell, IconCheck, IconChevron, IconMosque, IconSpark, IconUsers } from "@/components/icons";
+import { notifyStatus, useReminders } from "@/lib/notify";
+import Link from "next/link";
+
+export default function TodayPage() {
+  const state = useApp();
+  const now = useNow();
+  const [checkIn, setCheckIn] = useState<{ prayer: PrayerName; at: Date } | null>(null);
+
+  const view = state.settings ? buildToday(state, now) : null;
+  useReminders(view);
+  if (!state.settings || !view) return null; // gate shows splash until onboarded
+  const tz = state.settings.timezone;
+  const remindersOff = notifyStatus() === "default";
+
+  const heroRow = view.hero.isTomorrow
+    ? undefined
+    : view.rows.find((r) => r.prayer === view.hero.prayer);
+  const prepStarted = Boolean(heroRow?.log?.preparation_started_at);
+
+  function startPreparing() {
+    if (!view || !heroRow) return;
+    upsertLog({
+      date: view.date,
+      prayer: heroRow.prayer,
+      prayer_start_at: heroRow.at.toISOString(),
+      preparation_started_at: new Date().toISOString(),
+    });
+  }
+
+  const untilMin = minutesUntil(view.hero.at, now);
+
+  return (
+    <div className="space-y-5">
+      <p className="text-sm text-muted">{longDate(now, tz)}</p>
+
+      {remindersOff && (
+        <Link
+          href="/settings"
+          className="flex items-center gap-2.5 rounded-xl border border-warn/30 bg-warn-soft px-3.5 py-2.5 text-sm text-warn"
+        >
+          <IconBell width={16} height={16} className="shrink-0" />
+          <span className="flex-1">Pengingat belum aktif</span>
+          <IconChevron width={16} height={16} />
+        </Link>
+      )}
+
+      {/* ── HERO ─────────────────────────────────────────── */}
+      <section className="pt-1">
+        {view.hero.isTomorrow ? (
+          <DayComplete count={view.completed} next={PRAYER_LABEL[view.hero.prayer]} until={untilMin} />
+        ) : (
+          <>
+            <h1 className="text-4xl font-semibold uppercase tracking-tight text-text">
+              {PRAYER_LABEL[view.hero.prayer]}
+            </h1>
+            <div className="mt-1.5 flex items-baseline gap-2">
+              {view.hero.isNow ? (
+                <span
+                  className={cx(
+                    "text-lg font-medium",
+                    view.hero.state === "LATE_RISK" ? "text-warn" : "text-accent",
+                  )}
+                >
+                  Waktunya telah masuk
+                </span>
+              ) : (
+                <span className="tabular text-lg font-medium text-text">
+                  {humanCountdown(untilMin)}
+                </span>
+              )}
+              <span className="tabular text-sm text-subtle">· {formatTime(view.hero.at, tz)}</span>
+            </div>
+          </>
+        )}
+      </section>
+
+      {/* ── TARGET + ACTION ──────────────────────────────── */}
+      {!view.hero.isTomorrow && (
+        <Card className="p-4">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-subtle">Target</span>
+            {view.target.mosque && <IconMosque width={17} height={17} className="text-mosque" />}
+            <span className="font-medium text-text">{view.target.label}</span>
+          </div>
+
+          {view.hero.state === "LATE_RISK" ? (
+            <p className="mt-2 text-sm text-warn">
+              Belum tercatat — prioritaskan shalat sebelum melanjutkan aktivitas.
+            </p>
+          ) : view.hero.isNow ? (
+            <p className="mt-2 text-sm text-muted">Silakan tunaikan, lalu catat.</p>
+          ) : view.prepInMinutes > 0 ? (
+            <p className="mt-2 text-sm text-muted">
+              Mulai bersiap dalam{" "}
+              <span className="tabular font-medium text-text">{view.prepInMinutes} menit</span>
+            </p>
+          ) : (
+            <p className="mt-2 text-sm text-muted">Waktunya mulai bersiap.</p>
+          )}
+
+          <div className="mt-4">
+            {view.hero.isNow || prepStarted ? (
+              <Button className="w-full" onClick={() => setCheckIn({ prayer: view.hero.prayer, at: view.hero.at })}>
+                Catat Shalat
+              </Button>
+            ) : (
+              <Button className="w-full" onClick={startPreparing}>
+                Saya Mau Bersiap
+              </Button>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* ── INSIGHT (invisible assistant, §65) ───────────── */}
+      {!view.hero.isTomorrow && (
+        <div className="flex items-start gap-2.5 px-1 text-[13px] leading-relaxed text-muted">
+          <IconSpark width={16} height={16} className="mt-0.5 shrink-0 text-accent" />
+          <p>{view.plan.reason}</p>
+        </div>
+      )}
+
+      {/* ── TODAY PROGRESS ───────────────────────────────── */}
+      <section>
+        <div className="mb-2 flex items-center justify-between px-1">
+          <h2 className="text-sm font-medium text-muted">Hari ini</h2>
+          <span className="tabular text-sm text-subtle">{view.completed} / 5</span>
+        </div>
+        <Card className="divide-y divide-border">
+          {view.rows.map((row) => (
+            <PrayerRowItem
+              key={row.prayer}
+              row={row}
+              tz={tz}
+              now={now}
+              onCheckIn={() => setCheckIn({ prayer: row.prayer, at: row.at })}
+            />
+          ))}
+        </Card>
+      </section>
+
+      {checkIn && view && (
+        <CheckIn
+          open
+          onClose={() => setCheckIn(null)}
+          prayer={checkIn.prayer}
+          date={view.date}
+          prayerStartISO={checkIn.at.toISOString()}
+        />
+      )}
+    </div>
+  );
+}
+
+function PrayerRowItem({
+  row,
+  tz,
+  now,
+  onCheckIn,
+}: {
+  row: PrayerRow;
+  tz: string;
+  now: Date;
+  onCheckIn: () => void;
+}) {
+  const done = Boolean(row.log?.performed_at);
+  const entered = row.at.getTime() <= now.getTime();
+  // Tapping a past/current prayer opens check-in (also fixes a missed one, §102).
+  const tappable = entered;
+
+  return (
+    <button
+      disabled={!tappable}
+      onClick={onCheckIn}
+      className={cx(
+        "flex w-full items-center justify-between px-4 py-3 text-left transition",
+        tappable ? "hover:bg-surface-2 active:bg-surface-2" : "cursor-default",
+      )}
+    >
+      <span className="flex items-center gap-3">
+        <StatusGlyph row={row} />
+        <span className={cx("text-[15px]", done ? "text-text" : "text-muted")}>
+          {PRAYER_LABEL[row.prayer]}
+        </span>
+      </span>
+      <span className="tabular text-sm text-subtle">
+        {row.log?.performed_at ? formatTime(row.log.performed_at, tz) : formatTime(row.at, tz)}
+      </span>
+    </button>
+  );
+}
+
+function StatusGlyph({ row }: { row: PrayerRow }) {
+  const loc = row.log?.performed_location;
+  if (row.log?.performed_at) {
+    if (loc === "mosque")
+      return <IconMosque width={19} height={19} className="text-mosque" />;
+    if (loc === "congregation")
+      return <IconUsers width={19} height={19} className="text-accent" />;
+    return <IconCheck width={19} height={19} className="text-ok" strokeWidth={2.25} />;
+  }
+  if (row.state === "MISSED")
+    return <span className="grid h-[19px] w-[19px] place-items-center text-subtle">—</span>;
+  if (row.state === "LATE_RISK")
+    return <span className="h-2.5 w-2.5 rounded-full bg-warn" aria-hidden />;
+  // upcoming / preparation / prayer-time not yet logged → hollow ring
+  return <span className="h-[15px] w-[15px] rounded-full border-[1.75px] border-border-strong" aria-hidden />;
+}
+
+function DayComplete({ count, next, until }: { count: number; next: string; until: number }) {
+  return (
+    <div>
+      <h1 className="text-3xl font-semibold tracking-tight text-text">Hari ini selesai</h1>
+      <p className="mt-2 text-sm text-muted">
+        {count} dari 5 shalat terjaga. Berikutnya {next} · {humanCountdown(until)}.
+      </p>
+    </div>
+  );
+}

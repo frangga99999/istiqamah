@@ -1,26 +1,134 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+  Design system — mood: calm, focused, personal, disciplined, supportive (PRD §99).
+  Minimal, not ornamental. No aggressive reds (PRD §101–102): "late" and "missed"
+  read as muted amber / soft slate, never alarm-red.
+  Dark-first: the calm/focused mood lives best on a deep, quiet ground.
+*/
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root {
+  /* Light palette (default) */
+  --bg: #f6f7f6;
+  --surface: #ffffff;
+  --surface-2: #eef1ef;
+  --border: #e2e6e2;
+  --border-strong: #cfd5cf;
+
+  --text: #17201c;
+  --text-muted: #55605a;
+  --text-subtle: #8a938d;
+
+  /* Calm teal-green accent — the one brand colour. Restraint over motif. */
+  --accent: #2f7d68;
+  --accent-strong: #256657;
+  --accent-soft: #e4efeb;
+  --accent-fg: #ffffff;
+
+  /* Prayer / mosque emphasis (a quieter, cooler green than accent) */
+  --mosque: #3f7d6d;
+  --mosque-soft: #e8f1ee;
+
+  /* States — deliberately soft (PRD no-guilt design) */
+  --ok: #3f8f74;          /* completed */
+  --warn: #b7791f;        /* late-risk — amber, calm */
+  --warn-soft: #f7efdd;
+  --danger: #9a6a63;      /* missed — dusty rose, NOT alarm red */
+  --danger-soft: #efe6e4;
+
+  --ring: color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg: #0e1512;
+    --surface: #141c18;
+    --surface-2: #1b241f;
+    --border: #26312b;
+    --border-strong: #33433a;
+
+    --text: #e8ede9;
+    --text-muted: #9fac a4;
+    --text-muted: #9faca4;
+    --text-subtle: #6c7a72;
+
+    --accent: #4fae93;
+    --accent-strong: #3f9a80;
+    --accent-soft: #172a24;
+    --accent-fg: #05100c;
+
+    --mosque: #62b39c;
+    --mosque-soft: #16261f;
+
+    --ok: #57b795;
+    --warn: #d9a648;
+    --warn-soft: #2a2416;
+    --danger: #c39a92;
+    --danger-soft: #2a1f1d;
+
+    --ring: color-mix(in srgb, var(--accent) 55%, transparent);
   }
 }
 
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-text: var(--text);
+  --color-muted: var(--text-muted);
+  --color-subtle: var(--text-subtle);
+
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-fg: var(--accent-fg);
+
+  --color-mosque: var(--mosque);
+  --color-mosque-soft: var(--mosque-soft);
+
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  height: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  /* Respect iOS safe areas for the installed PWA */
+  padding-bottom: env(safe-area-inset-bottom);
+  overscroll-behavior-y: none;
+}
+
+/* Big countdown / clock numbers shouldn't jitter as digits change */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Accessible focus ring (PRD §108) */
+:where(button, a, input, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

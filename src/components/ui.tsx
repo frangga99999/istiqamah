@@ -1,5 +1,5 @@
 "use client";
-import { type ButtonHTMLAttributes, type ReactNode, useEffect } from "react";
+import { type ButtonHTMLAttributes, type CSSProperties, type ReactNode, useEffect } from "react";
 
 function cx(...c: (string | false | undefined)[]) {
   return c.filter(Boolean).join(" ");
@@ -34,9 +34,19 @@ export function Button({
   );
 }
 
-export function Card({ className, children }: { className?: string; children: ReactNode }) {
+export function Card({
+  className,
+  children,
+  style,
+}: {
+  className?: string;
+  children: ReactNode;
+  style?: CSSProperties;
+}) {
   return (
-    <div className={cx("rounded-2xl border border-border bg-surface", className)}>{children}</div>
+    <div className={cx("rounded-2xl border border-border bg-surface", className)} style={style}>
+      {children}
+    </div>
   );
 }
 

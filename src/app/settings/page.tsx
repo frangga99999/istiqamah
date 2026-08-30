@@ -55,7 +55,7 @@ export default function SettingsPage() {
         <h1 className="text-lg font-semibold text-text">Pengaturan</h1>
       </header>
 
-      <div className="space-y-6 px-4 pb-16">
+      <div className="space-y-8 px-4 pb-16">
         {/* Notifications (§106) */}
         <Group title="Pengingat">
           <RowButton
@@ -113,7 +113,8 @@ export default function SettingsPage() {
             onClick={() => setOffsetsOpen((v) => !v)}
           />
           {offsetsOpen && (
-            <div className="space-y-2 px-4 pb-3">
+            <div className="space-y-2 bg-surface-2/40 px-3 pb-4 pt-3">
+              <p className="px-1 pb-0.5 text-xs text-subtle">Geser waktu tiap shalat (menit)</p>
               {PRAYERS.map((prayer) => (
                 <OffsetRow
                   key={prayer}
@@ -360,11 +361,11 @@ function OffsetRow({
   onChange: (v: number) => void;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-lg bg-surface-2 px-3 py-2">
-      <span className="text-sm text-muted">{PRAYER_LABEL[prayer]}</span>
+    <div className="flex items-center justify-between rounded-xl bg-surface px-4 py-2.5">
+      <span className="text-[15px] text-text">{PRAYER_LABEL[prayer]}</span>
       <div className="flex items-center gap-3">
         <Stepper onClick={() => onChange(value - 1)}>−</Stepper>
-        <span className="tabular w-10 text-center text-sm text-text">
+        <span className="tabular w-10 text-center text-sm font-medium text-text">
           {value > 0 ? `+${value}` : value}
         </span>
         <Stepper onClick={() => onChange(value + 1)}>+</Stepper>
@@ -377,7 +378,7 @@ function Stepper({ children, onClick }: { children: React.ReactNode; onClick: ()
   return (
     <button
       onClick={onClick}
-      className="grid h-7 w-7 place-items-center rounded-full bg-surface text-muted hover:text-text"
+      className="grid h-8 w-8 place-items-center rounded-full bg-surface-2 text-lg text-muted transition-colors hover:bg-border hover:text-text active:scale-95"
     >
       {children}
     </button>

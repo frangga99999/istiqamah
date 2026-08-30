@@ -136,6 +136,17 @@ body {
   from { opacity: 0; transform: translateY(5px); }
   to { opacity: 1; transform: translateY(0); }
 }
+/* Hero action card: a calm breathing glow (colour set via --glow). */
+@keyframes heroGlow {
+  0%, 100% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--glow) 12%, transparent); }
+  50% { box-shadow: 0 0 26px -6px color-mix(in srgb, var(--glow) 45%, transparent),
+                    0 0 0 1px color-mix(in srgb, var(--glow) 28%, transparent); }
+}
+/* Light sweep across the primary CTA. */
+@keyframes shine {
+  0% { transform: translateX(-100%); }
+  60%, 100% { transform: translateX(220%); }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

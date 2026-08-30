@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useApp } from "@/lib/store";
 import { PRAYERS, PRAYER_LABEL, type PrayerLog, type PrayerName } from "@/lib/types";
-import { formatTime } from "@/lib/prayer/times";
+import { formatTime, localDateKey, scheduleForDay } from "@/lib/prayer/times";
 import { delayMinutes } from "@/lib/engine/profile";
 import { longDate } from "@/lib/format";
 import { Card, Sheet, cx } from "@/components/ui";
@@ -65,6 +65,19 @@ export default function HistoryPage() {
   // Only render days that actually have entries — no wall of empty days.
   const loggedDates = dates.filter((d) => state.logs.some((l) => l.date === d));
 
+  // Per-prayer status for the header circles: done / missed (red) / not-yet.
+  const now = new Date();
+  const todayKey = localDateKey(tz);
+  const todaySchedule = scheduleForDay(state.settings, now);
+  const circleState = (d: string, p: PrayerName, log?: PrayerLog): "done" | "missed" | "upcoming" => {
+    if (log?.performed_at) return "done";
+    if (d < todayKey) return "missed";
+    if (d === todayKey) {
+      return new Date(todaySchedule.times[p]).getTime() <= now.getTime() ? "missed" : "upcoming";
+    }
+    return "upcoming";
+  };
+
   return (
     <div className="space-y-5">
       <h1 className="text-xl font-semibold tracking-tight text-text">Riwayat</h1>
@@ -113,9 +126,9 @@ export default function HistoryPage() {
               >
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-text">{longDate(dayDate, tz)}</p>
-                  <div className="mt-2 flex items-center gap-1.5">
-                    {dayLogs.map((l, i) => (
-                      <MiniDot key={i} log={l} />
+                  <div className="mt-2.5 flex items-center gap-2">
+                    {PRAYERS.map((p, i) => (
+                      <PrayerCircle key={p} prayer={p} log={dayLogs[i]} state={circleState(date, p, dayLogs[i])} />
                     ))}
                   </div>
                 </div>
@@ -173,18 +186,34 @@ export default function HistoryPage() {
   );
 }
 
-// Compact per-prayer status dot for the collapsed day header.
-function MiniDot({ log }: { log?: PrayerLog }) {
-  if (log?.performed_at) {
-    const c =
-      log.performed_location === "mosque"
+const INITIAL: Record<PrayerName, string> = { fajr: "S", dhuhr: "D", asr: "A", maghrib: "M", isha: "I" };
+
+// Medium circle with the prayer's initial for the collapsed day header.
+// Done → its location colour; missed → red; not-yet → faint outline.
+function PrayerCircle({
+  prayer,
+  log,
+  state,
+}: {
+  prayer: PrayerName;
+  log?: PrayerLog;
+  state: "done" | "missed" | "upcoming";
+}) {
+  const base = "grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-semibold";
+  const letter = INITIAL[prayer];
+  if (state === "done") {
+    const bg =
+      log?.performed_location === "mosque"
         ? "bg-mosque"
-        : log.performed_location === "congregation"
+        : log?.performed_location === "congregation"
           ? "bg-accent"
           : "bg-ok";
-    return <span className={cx("h-2 w-2 rounded-full", c)} />;
+    return <span className={cx(base, bg, "text-white")}>{letter}</span>;
   }
-  return <span className="h-2 w-2 rounded-full border border-border-strong" />;
+  if (state === "missed") {
+    return <span className={cx(base, "bg-red-500/15 text-red-400 ring-1 ring-red-500/40")}>{letter}</span>;
+  }
+  return <span className={cx(base, "border border-border-strong font-medium text-subtle")}>{letter}</span>;
 }
 
 function SummaryStat({ value, label, tone }: { value: number; label: string; tone?: "ok" | "mosque" }) {

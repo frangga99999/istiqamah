@@ -154,7 +154,11 @@ function nowHHMM() {
   return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" }).format(new Date());
 }
 
-// iOS-style time picker in a drawer: two tappable, centre-scrolling columns.
+const ITEM_H = 40; // px per wheel row
+const VISIBLE = 5; // rows shown → column height
+
+// iOS-style time picker: scroll-snapping wheels that keep the selected number
+// centred in the guide box, with a distance-based fade + scale for motion.
 function TimeDrawer({
   open,
   onClose,
@@ -171,11 +175,22 @@ function TimeDrawer({
   const [m, setM] = useState(Number.isNaN(mm) ? 0 : mm);
   return (
     <Sheet open={open} onClose={onClose} title="Waktu shalat">
-      <div className="relative flex items-stretch gap-3">
-        {/* centre selection guide */}
-        <div className="pointer-events-none absolute inset-x-0 top-1/2 z-10 mt-3 h-11 -translate-y-1/2 rounded-xl border border-accent/30" />
-        <WheelCol label="Jam" count={24} value={h} onSelect={setH} />
-        <WheelCol label="Menit" count={60} value={m} onSelect={setM} />
+      <div className="mb-1.5 flex gap-3 text-center text-xs text-subtle">
+        <span className="flex-1">Jam</span>
+        <span className="flex-1">Menit</span>
+      </div>
+      <div className="relative overflow-hidden rounded-2xl bg-surface-2">
+        {/* centre selection guide + top/bottom fades */}
+        <div
+          className="pointer-events-none absolute inset-x-2 top-1/2 z-10 -translate-y-1/2 rounded-xl border border-accent/40 bg-accent/5"
+          style={{ height: ITEM_H }}
+        />
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-14 bg-gradient-to-b from-surface-2 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-14 bg-gradient-to-t from-surface-2 to-transparent" />
+        <div className="flex">
+          <WheelCol count={24} value={h} onSelect={setH} />
+          <WheelCol count={60} value={m} onSelect={setM} />
+        </div>
       </div>
       <Button
         className="mt-4 w-full"
@@ -191,40 +206,60 @@ function TimeDrawer({
 }
 
 function WheelCol({
-  label,
   count,
   value,
   onSelect,
 }: {
-  label: string;
   count: number;
   value: number;
   onSelect: (n: number) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const raf = useRef(0);
   useEffect(() => {
-    ref.current?.querySelector<HTMLElement>('[data-sel="true"]')?.scrollIntoView({ block: "center" });
-    // centre the initial selection once when the drawer mounts
+    if (ref.current) ref.current.scrollTop = value * ITEM_H; // centre initial value
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  function onScroll() {
+    cancelAnimationFrame(raf.current);
+    raf.current = requestAnimationFrame(() => {
+      const el = ref.current;
+      if (!el) return;
+      const idx = Math.max(0, Math.min(count - 1, Math.round(el.scrollTop / ITEM_H)));
+      if (idx !== value) onSelect(idx);
+    });
+  }
+  const pad = (ITEM_H * (VISIBLE - 1)) / 2;
   return (
-    <div className="flex-1">
-      <p className="mb-1.5 text-center text-xs text-subtle">{label}</p>
-      <div ref={ref} className="h-44 overflow-y-auto rounded-2xl bg-surface-2 py-[76px] [scrollbar-width:none]">
-        {Array.from({ length: count }, (_, n) => (
+    <div
+      ref={ref}
+      onScroll={onScroll}
+      className="flex-1 snap-y snap-mandatory overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      style={{ height: ITEM_H * VISIBLE }}
+    >
+      <div style={{ height: pad }} />
+      {Array.from({ length: count }, (_, n) => {
+        const dist = Math.abs(n - value);
+        return (
           <button
             key={n}
-            data-sel={n === value}
-            onClick={() => onSelect(n)}
-            className={cx(
-              "block w-full py-1.5 text-center tabular text-lg transition-all",
-              n === value ? "scale-110 font-semibold text-accent" : "text-subtle hover:text-muted",
-            )}
+            onClick={() => ref.current?.scrollTo({ top: n * ITEM_H, behavior: "smooth" })}
+            className="flex w-full snap-center items-center justify-center"
+            style={{ height: ITEM_H }}
           >
-            {pad2(n)}
+            <span
+              className={cx(
+                "tabular transition-all duration-150",
+                n === value ? "scale-110 text-xl font-semibold text-accent" : "text-lg text-subtle",
+              )}
+              style={{ opacity: n === value ? 1 : Math.max(0.2, 1 - dist * 0.3) }}
+            >
+              {pad2(n)}
+            </span>
           </button>
-        ))}
-      </div>
+        );
+      })}
+      <div style={{ height: pad }} />
     </div>
   );
 }

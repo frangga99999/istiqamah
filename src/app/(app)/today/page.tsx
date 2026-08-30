@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { useApp, upsertLog } from "@/lib/store";
 import { useNow } from "@/lib/use-now";
 import { buildToday, type PrayerRow } from "@/lib/today";
@@ -40,6 +40,12 @@ export default function TodayPage() {
     });
     setJustPrepped(true);
     setTimeout(() => setJustPrepped(false), 1400); // brief acknowledgement
+  }
+
+  function tap() {
+    if (state.prefs.vibration && typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate(12);
+    }
   }
 
   const untilMin = minutesUntil(view.hero.at, now);
@@ -91,7 +97,20 @@ export default function TodayPage() {
 
       {/* ── TARGET + ACTION ──────────────────────────────── */}
       {!view.hero.isTomorrow && (
-        <Card className="p-4">
+        <Card
+          className={cx(
+            "relative overflow-hidden p-5",
+            view.hero.state === "LATE_RISK"
+              ? "border-warn/40 bg-gradient-to-b from-warn-soft/60 to-surface"
+              : "border-accent/30 bg-gradient-to-b from-accent-soft/50 to-surface",
+          )}
+          style={
+            {
+              ["--glow"]: view.hero.state === "LATE_RISK" ? "var(--warn)" : "var(--accent)",
+              animation: "heroGlow 3.4s ease-in-out infinite",
+            } as CSSProperties
+          }
+        >
           <div className="flex items-center gap-2 text-sm">
             <span className="text-subtle">Target</span>
             {view.target.mosque && <IconMosque width={17} height={17} className="text-mosque" />}
@@ -123,15 +142,26 @@ export default function TodayPage() {
               ) : (
                 <Button
                   key="catat"
-                  className="w-full"
+                  className="relative w-full overflow-hidden"
                   style={{ animation: "ctaIn .32s ease-out" }}
-                  onClick={() => setCheckIn({ prayer: view.hero.prayer, at: view.hero.at })}
+                  onClick={() => {
+                    tap();
+                    setCheckIn({ prayer: view.hero.prayer, at: view.hero.at });
+                  }}
                 >
+                  <Shine />
                   Catat Shalat
                 </Button>
               )
             ) : (
-              <Button className="w-full" onClick={startPreparing}>
+              <Button
+                className="relative w-full overflow-hidden"
+                onClick={() => {
+                  tap();
+                  startPreparing();
+                }}
+              >
+                <Shine />
                 Saya Mau Bersiap
               </Button>
             )}
@@ -176,6 +206,21 @@ export default function TodayPage() {
         />
       )}
     </div>
+  );
+}
+
+// Subtle light sweep across the primary CTA — draws the eye without distracting.
+function Shine() {
+  return (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute inset-0"
+      style={{
+        transform: "translateX(-100%)",
+        animation: "shine 3s ease-in-out infinite",
+        background: "linear-gradient(100deg, transparent 20%, rgba(255,255,255,0.28) 50%, transparent 80%)",
+      }}
+    />
   );
 }
 

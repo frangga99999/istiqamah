@@ -5,6 +5,26 @@
 -- Intentionally NOT stored: prayer_schedule (PRD §73). Prayer times are deterministic
 -- from settings, so they are computed client-side and cached in the browser for offline
 -- (PRD §89/§105) rather than duplicated per-user per-day in Postgres.
+--
+-- Idempotent clean slate: this project previously held an earlier iteration's tables
+-- (profiles, user_settings, prayer_logs, daily_summaries) — all empty. They are dropped
+-- here. The Supabase auth-confirm trigger and the ensure_rls event trigger are left intact.
+
+-- ── clean slate (safe no-ops on a fresh database) ──────────────────────────
+drop trigger if exists on_auth_user_created on auth.users;
+-- prior iteration (empty)
+drop table if exists public.daily_summaries cascade;
+drop table if exists public.user_settings cascade;
+drop table if exists public.profiles cascade;
+-- this schema (re-runnable)
+drop table if exists public.push_subscriptions cascade;
+drop table if exists public.weekly_reviews cascade;
+drop table if exists public.goals cascade;
+drop table if exists public.behavior_profiles cascade;
+drop table if exists public.reminder_events cascade;
+drop table if exists public.prayer_logs cascade;
+drop table if exists public.user_prayer_settings cascade;
+drop table if exists public.user_profiles cascade;
 
 -- ── helpers ────────────────────────────────────────────────────────────────
 create or replace function public.set_updated_at()

@@ -1,36 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Istiqamah — Personal Prayer Discipline Assistant
 
-## Getting Started
+A mobile-first PWA that learns each user's prayer patterns and reminds at the
+right time — helping build the habit of praying on time, congregationally at the
+mosque, and consistently, one step at a time.
 
-First, run the development server:
+Not a prayer reminder. An **adaptive prayer discipline assistant**: it knows not
+just *when* a prayer is due, but when *this user* needs to start getting ready.
+
+## Stack
+
+- **Next.js 16** (App Router) · **React 19** · **Tailwind v4** — static, mobile-first
+- **[adhan](https://github.com/batoulapps/adhan-js)** — prayer-time calculation (Kemenag default)
+- **localStorage** — offline-first working set (check-in works with no network)
+- **Supabase** — auth (magic link + Google) + cloud sync, off gracefully until configured
+- Deterministic adaptive engine — **no ML**: rolling averages, thresholds, weighted recency
+
+## Run
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev          # http://localhost:3000
+npm run build        # production build (all routes static)
+npm test             # adaptive engine self-check (16 assertions)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The app works **fully local-first** with no backend. Supabase only adds sign-in
+and cross-device sync.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Supabase setup
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`.env.local` is already pointed at the `Istiqamah_apps_frangga` project and the
+schema (`supabase/migrations/0001_init.sql`) is applied (tables + row-level
+security, all owner-only). Two manual dashboard steps remain for auth:
 
-## Learn More
+1. **Redirect URLs** — Authentication → URL Configuration:
+   - Site URL: `http://localhost:3000`
+   - Redirect URLs: `http://localhost:3000/**` (add your production URL later)
+   - Magic-link sign-in works as soon as this is set.
+2. **Google (optional)** — Authentication → Providers → Google: add a Google
+   Cloud OAuth client ID + secret. Not needed for magic-link sign-in.
 
-To learn more about Next.js, take a look at the following resources:
+## Architecture
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+src/lib/
+  prayer/times.ts     adhan wrapper — schedule, next prayer, tz-correct days
+  prayer/state.ts     UPCOMING · PREPARATION · PRAYER_TIME · LATE_RISK · COMPLETED · MISSED
+  engine/profile.ts   rolling behaviour profile + risk (recency-weighted)
+  engine/adaptive.ts  reminder planner — risk → discrete lead-time grid
+  today.ts            Home view-model (schedule + logs + engine)
+  journey.ts          weekly metrics, trend, goal promotion
+  focus.ts            starting strategy + goal ladder
+  store.ts            local-first store (localStorage) + sync merge
+  sync.ts             local ↔ Supabase (pull-merge-push, last-write-wins)
+  notify.ts           notification copy + foreground scheduler
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The core loop the whole product serves: **observe → predict → intervene →
+record → learn → adjust**, reducing reminders as discipline grows.
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Data is private by default. No public profiles, no leaderboards, no guilt
+design — a missed prayer is a quiet dash, never a red alarm.

@@ -15,6 +15,7 @@ import type {
 import { Button, cx } from "@/components/ui";
 import { IconChevron } from "@/components/icons";
 import { CITIES } from "@/lib/cities";
+import { asset } from "@/lib/base-path";
 
 type Opt<T> = { value: T; label: string };
 const CONDITION: Opt<StartingCondition>[] = [
@@ -125,7 +126,7 @@ export default function Onboarding() {
       {name === "intro" && (
         <div className="flex flex-1 flex-col justify-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icon.svg" alt="" className="mb-8 h-16 w-16 rounded-2xl" />
+          <img src={asset("/icon.svg")} alt="" className="mb-8 h-16 w-16 rounded-2xl" />
           <h1 className="text-3xl font-semibold leading-tight tracking-tight text-text">
             Bangun kebiasaan shalat, perlahan.
           </h1>

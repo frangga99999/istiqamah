@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AppGate } from "@/components/app-gate";
 import { BottomNav } from "@/components/bottom-nav";
 import { IconGear } from "@/components/icons";
+import { asset } from "@/lib/base-path";
 
 export default function AppLayout({ children }: LayoutProps<"/">) {
   return (
@@ -10,7 +11,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         <header className="sticky top-0 z-20 flex items-center justify-between px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-3">
           <Link href="/today" className="flex items-center gap-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icon.svg" alt="" className="h-7 w-7 rounded-lg" />
+            <img src={asset("/icon.svg")} alt="" className="h-7 w-7 rounded-lg" />
             <span className="text-sm font-semibold tracking-tight text-text">Istiqamah</span>
           </Link>
           <Link

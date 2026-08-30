@@ -2,13 +2,16 @@
 // Navigations are network-first (stays fresh in dev, falls back to cache offline);
 // hashed static assets are cache-first (immutable).
 const CACHE = "istq-v1";
+// Works under any basePath (e.g. "/istiqamah" on GitHub Pages) — derived from
+// where this sw.js is served rather than hard-coded absolute paths.
+const BASE = self.location.pathname.replace(/\/sw\.js$/, "");
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();
   e.waitUntil(
     caches
       .open(CACHE)
-      .then((c) => c.addAll(["/icon.svg", "/icon-192.png", "/manifest.webmanifest"]).catch(() => {})),
+      .then((c) => c.addAll([`${BASE}/icon.svg`, `${BASE}/icon-192.png`]).catch(() => {})),
   );
 });
 
@@ -55,7 +58,7 @@ self.addEventListener("fetch", (e) => {
           return res;
         } catch {
           const c = await caches.open(CACHE);
-          return (await c.match(request)) || (await c.match("/today")) || Response.error();
+          return (await c.match(request)) || (await c.match(`${BASE}/today`)) || Response.error();
         }
       })(),
     );
@@ -84,7 +87,7 @@ self.addEventListener("push", (e) => {
 
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
-  const target = (e.notification.data && e.notification.data.url) || "/today";
+  const target = (e.notification.data && e.notification.data.url) || `${BASE}/today`;
   e.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((cs) => {
       for (const c of cs) if ("focus" in c) return c.navigate(target).then((x) => x && x.focus());

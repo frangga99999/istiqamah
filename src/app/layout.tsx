@@ -3,21 +3,21 @@ import { Geist } from "next/font/google";
 import "./globals.css";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { SyncProvider } from "@/components/sync-provider";
+import { asset } from "@/lib/base-path";
 
 const geist = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Istiqamah — Pendamping Shalat",
   description: "Bangun kebiasaan shalat, perlahan. Pengingat yang mempelajari polamu.",
-  manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Istiqamah" },
   applicationName: "Istiqamah",
   icons: {
     icon: [
-      { url: "/icon.svg", type: "image/svg+xml" },
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: asset("/icon.svg"), type: "image/svg+xml" },
+      { url: asset("/icon-192.png"), sizes: "192x192", type: "image/png" },
     ],
-    apple: "/icon-180.png",
+    apple: asset("/icon-180.png"),
   },
 };
 

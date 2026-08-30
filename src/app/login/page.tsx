@@ -4,6 +4,7 @@ import { useState } from "react";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase/client";
 import { Button, Card } from "@/components/ui";
 import { IconBack } from "@/components/icons";
+import { asset } from "@/lib/base-path";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -44,7 +45,7 @@ export default function LoginPage() {
 
       <div className="flex flex-1 flex-col justify-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/icon.svg" alt="" className="mb-6 h-14 w-14 rounded-2xl" />
+        <img src={asset("/icon.svg")} alt="" className="mb-6 h-14 w-14 rounded-2xl" />
         <h1 className="text-2xl font-semibold tracking-tight text-text">Simpan & sinkronkan</h1>
         <p className="mt-2 text-sm text-muted">
           Masuk untuk mencadangkan catatanmu dan memakainya di perangkat lain. Kamu tetap bisa

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect } from "react";
+import { BASE_PATH } from "@/lib/base-path";
 
 // Registers the service worker for offline shell + caching (PRD §88) in production.
 // In dev we unregister any existing SW and clear its caches — a cache-first SW
@@ -14,7 +15,8 @@ export function ServiceWorkerRegister() {
       return;
     }
 
-    const onLoad = () => navigator.serviceWorker.register("/sw.js").catch(() => {});
+    const onLoad = () =>
+      navigator.serviceWorker.register(`${BASE_PATH}/sw.js`, { scope: `${BASE_PATH}/` }).catch(() => {});
     if (document.readyState === "complete") onLoad();
     else window.addEventListener("load", onLoad, { once: true });
   }, []);

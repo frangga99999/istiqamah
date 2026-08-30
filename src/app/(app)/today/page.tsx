@@ -2,11 +2,10 @@
 import { useState, type CSSProperties } from "react";
 import { useApp, upsertLog } from "@/lib/store";
 import { useNow } from "@/lib/use-now";
-import { buildToday, type PrayerRow } from "@/lib/today";
+import { buildToday, type PrayerRow, type TodayView } from "@/lib/today";
 import { PRAYER_LABEL, type PrayerName } from "@/lib/types";
 import { formatTime } from "@/lib/prayer/times";
-import { minutesUntil } from "@/lib/prayer/state";
-import { humanCountdown, longDate } from "@/lib/format";
+import { longDate } from "@/lib/format";
 import { Button, Card, cx } from "@/components/ui";
 import { CheckIn } from "@/components/check-in";
 import { IconBell, IconCheck, IconChevron, IconMosque, IconSpark, IconUsers } from "@/components/icons";
@@ -15,7 +14,7 @@ import Link from "next/link";
 
 export default function TodayPage() {
   const state = useApp();
-  const now = useNow();
+  const now = useNow(1000); // tick every second for the live countdown ring
   const [checkIn, setCheckIn] = useState<{ prayer: PrayerName; at: Date } | null>(null);
   const [justPrepped, setJustPrepped] = useState(false); // transient confirm state
 
@@ -48,8 +47,6 @@ export default function TodayPage() {
     }
   }
 
-  const untilMin = minutesUntil(view.hero.at, now);
-
   return (
     <div className="space-y-5">
       <p className="text-sm text-muted">{longDate(now, tz)}</p>
@@ -65,34 +62,9 @@ export default function TodayPage() {
         </Link>
       )}
 
-      {/* ── HERO ─────────────────────────────────────────── */}
+      {/* ── HERO: live countdown ring ────────────────────── */}
       <section className="pt-1">
-        {view.hero.isTomorrow ? (
-          <DayComplete count={view.completed} next={PRAYER_LABEL[view.hero.prayer]} until={untilMin} />
-        ) : (
-          <>
-            <h1 className="text-4xl font-semibold uppercase tracking-tight text-text">
-              {PRAYER_LABEL[view.hero.prayer]}
-            </h1>
-            <div className="mt-1.5 flex items-baseline gap-2">
-              {view.hero.isNow ? (
-                <span
-                  className={cx(
-                    "text-lg font-medium",
-                    view.hero.state === "LATE_RISK" ? "text-warn" : "text-accent",
-                  )}
-                >
-                  Waktunya telah masuk
-                </span>
-              ) : (
-                <span className="tabular text-lg font-medium text-text">
-                  {humanCountdown(untilMin)}
-                </span>
-              )}
-              <span className="tabular text-sm text-subtle">· {formatTime(view.hero.at, tz)}</span>
-            </div>
-          </>
-        )}
+        <CountdownHero view={view} now={now} tz={tz} />
       </section>
 
       {/* ── TARGET + ACTION ──────────────────────────────── */}
@@ -179,15 +151,16 @@ export default function TodayPage() {
 
       {/* ── TODAY PROGRESS ───────────────────────────────── */}
       <section>
-        <div className="mb-2 flex items-center justify-between px-1">
-          <h2 className="text-sm font-medium text-muted">Hari ini</h2>
-          <span className="tabular text-sm text-subtle">{view.completed} / 5</span>
+        <div className="mb-2.5 flex items-center justify-between px-1">
+          <h2 className="text-[15px] font-semibold text-text">Hari ini</h2>
+          <span className="tabular text-sm font-medium text-muted">{view.completed} / 5</span>
         </div>
         <Card className="divide-y divide-border">
-          {view.rows.map((row) => (
+          {view.rows.map((row, i) => (
             <PrayerRowItem
               key={row.prayer}
               row={row}
+              index={i}
               tz={tz}
               now={now}
               onCheckIn={() => setCheckIn({ prayer: row.prayer, at: row.at })}
@@ -209,6 +182,83 @@ export default function TodayPage() {
   );
 }
 
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+// Live countdown ring: the arc fills as `now` moves from the previous prayer to the
+// next, a marker shows when to start preparing, and the clock ticks each second —
+// so the next prayer feels near and users can get ready (PRD §19, §132).
+function CountdownHero({ view, now, tz }: { view: TodayView; now: Date; tz: string }) {
+  const { hero, intervalStart, prepAt } = view;
+  const nowMs = now.getTime();
+  const start = intervalStart.getTime();
+  const target = hero.at.getTime();
+  const span = Math.max(1, target - start);
+  const progress = hero.isNow ? 1 : Math.min(1, Math.max(0, (nowMs - start) / span));
+  const prepFrac = Math.min(1, Math.max(0, (prepAt.getTime() - start) / span));
+  const remaining = Math.max(0, target - nowMs);
+
+  const h = Math.floor(remaining / 3_600_000);
+  const m = Math.floor(remaining / 60_000) % 60;
+  const s = Math.floor(remaining / 1000) % 60;
+  const big = hero.isNow ? "Masuk" : h > 0 ? `${h}:${pad2(m)}:${pad2(s)}` : `${m}:${pad2(s)}`;
+
+  const late = hero.state === "LATE_RISK";
+  const color = late ? "var(--warn)" : view.target.mosque ? "var(--mosque)" : "var(--accent)";
+  const R = 52;
+  const C = 2 * Math.PI * R;
+  const mx = 60 + R * Math.cos(2 * Math.PI * prepFrac);
+  const my = 60 + R * Math.sin(2 * Math.PI * prepFrac);
+  const prepReached = nowMs >= prepAt.getTime();
+
+  return (
+    <div className="relative mx-auto flex h-[224px] w-[224px] items-center justify-center">
+      <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full -rotate-90">
+        <circle cx="60" cy="60" r={R} fill="none" stroke="var(--surface-2)" strokeWidth="7" />
+        <circle
+          cx="60"
+          cy="60"
+          r={R}
+          fill="none"
+          stroke={color}
+          strokeWidth="7"
+          strokeLinecap="round"
+          strokeDasharray={C}
+          strokeDashoffset={C * (1 - progress)}
+          style={{ transition: "stroke-dashoffset 1s linear", filter: `drop-shadow(0 0 5px ${color})` }}
+        />
+        {!hero.isNow && prepFrac > 0.02 && prepFrac < 0.99 && (
+          <circle cx={mx} cy={my} r="4.5" fill="var(--surface)" stroke={color} strokeWidth="2.5" />
+        )}
+      </svg>
+
+      {/* gentle breathing halo, warmer/faster when it's time to get ready */}
+      <div
+        className="pointer-events-none absolute inset-4 rounded-full"
+        style={
+          {
+            animation: `ringPulse ${prepReached && !hero.isNow ? 1.6 : 3}s ease-in-out infinite`,
+            ["--glow"]: color,
+          } as CSSProperties
+        }
+      />
+
+      <div className="relative z-10 px-6 text-center">
+        <p className="text-sm font-semibold uppercase tracking-widest" style={{ color }}>
+          {PRAYER_LABEL[hero.prayer]}
+        </p>
+        <p className="tabular mt-1 text-[40px] font-bold leading-none text-text">{big}</p>
+        <p className="mt-2 text-xs text-subtle">
+          {hero.isNow
+            ? "waktunya shalat"
+            : hero.isTomorrow
+              ? `besok · ${formatTime(hero.at, tz)}`
+              : `menuju adzan · ${formatTime(hero.at, tz)}`}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // Subtle light sweep across the primary CTA — draws the eye without distracting.
 function Shine() {
   return (
@@ -226,11 +276,13 @@ function Shine() {
 
 function PrayerRowItem({
   row,
+  index,
   tz,
   now,
   onCheckIn,
 }: {
   row: PrayerRow;
+  index: number;
   tz: string;
   now: Date;
   onCheckIn: () => void;
@@ -239,23 +291,26 @@ function PrayerRowItem({
   const entered = row.at.getTime() <= now.getTime();
   // Tapping a past/current prayer opens check-in (also fixes a missed one, §102).
   const tappable = entered;
+  const current = entered && !done && row.state !== "MISSED"; // in-progress prayer
 
   return (
     <button
       disabled={!tappable}
       onClick={onCheckIn}
+      style={{ animation: "rowIn .45s ease-out backwards", animationDelay: `${index * 65}ms` }}
       className={cx(
-        "flex w-full items-center justify-between px-4 py-3 text-left transition",
-        tappable ? "hover:bg-surface-2 active:bg-surface-2" : "cursor-default",
+        "flex w-full items-center justify-between px-4 py-4 text-left transition",
+        current && "bg-accent-soft/40",
+        tappable ? "hover:bg-surface-2 active:scale-[0.99] active:bg-surface-2" : "cursor-default",
       )}
     >
-      <span className="flex items-center gap-3">
+      <span className="flex items-center gap-3.5">
         <StatusGlyph row={row} />
-        <span className={cx("text-[15px]", done ? "text-text" : "text-muted")}>
+        <span className={cx("text-base", done ? "font-medium text-text" : "text-muted")}>
           {PRAYER_LABEL[row.prayer]}
         </span>
       </span>
-      <span className="tabular text-sm text-subtle">
+      <span className="tabular text-[15px] text-subtle">
         {row.log?.performed_at ? formatTime(row.log.performed_at, tz) : formatTime(row.at, tz)}
       </span>
     </button>
@@ -265,27 +320,23 @@ function PrayerRowItem({
 function StatusGlyph({ row }: { row: PrayerRow }) {
   const loc = row.log?.performed_location;
   if (row.log?.performed_at) {
-    if (loc === "mosque")
-      return <IconMosque width={19} height={19} className="text-mosque" />;
-    if (loc === "congregation")
-      return <IconUsers width={19} height={19} className="text-accent" />;
-    return <IconCheck width={19} height={19} className="text-ok" strokeWidth={2.25} />;
+    if (loc === "mosque") return <IconMosque width={22} height={22} className="text-mosque" />;
+    if (loc === "congregation") return <IconUsers width={22} height={22} className="text-accent" />;
+    return <IconCheck width={22} height={22} className="text-ok" strokeWidth={2.25} />;
   }
   if (row.state === "MISSED")
-    return <span className="grid h-[19px] w-[19px] place-items-center text-subtle">—</span>;
+    return <span className="grid h-[22px] w-[22px] place-items-center text-lg text-subtle">—</span>;
   if (row.state === "LATE_RISK")
-    return <span className="h-2.5 w-2.5 rounded-full bg-warn" aria-hidden />;
+    return (
+      <span className="grid h-[22px] w-[22px] place-items-center" aria-hidden>
+        <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-warn" />
+      </span>
+    );
   // upcoming / preparation / prayer-time not yet logged → hollow ring
-  return <span className="h-[15px] w-[15px] rounded-full border-[1.75px] border-border-strong" aria-hidden />;
-}
-
-function DayComplete({ count, next, until }: { count: number; next: string; until: number }) {
   return (
-    <div>
-      <h1 className="text-3xl font-semibold tracking-tight text-text">Hari ini selesai</h1>
-      <p className="mt-2 text-sm text-muted">
-        {count} dari 5 shalat terjaga. Berikutnya {next} · {humanCountdown(until)}.
-      </p>
-    </div>
+    <span className="grid h-[22px] w-[22px] place-items-center" aria-hidden>
+      <span className="h-[17px] w-[17px] rounded-full border-2 border-border-strong" />
+    </span>
   );
 }
+

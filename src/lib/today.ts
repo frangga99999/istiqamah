@@ -2,7 +2,14 @@
 // together so the screen component stays presentational.
 import { PRAYERS, type PrayerLog, type PrayerName, type PrayerState } from "@/lib/types";
 import type { AppState } from "@/lib/store";
-import { nextPrayer, scheduleForDay, tomorrowFajr, localDateKey, type NextPrayer } from "@/lib/prayer/times";
+import {
+  nextPrayer,
+  previousPrayerAt,
+  scheduleForDay,
+  tomorrowFajr,
+  localDateKey,
+  type NextPrayer,
+} from "@/lib/prayer/times";
 import { prayerState } from "@/lib/prayer/state";
 import { buildProfile, THRESHOLDS } from "@/lib/engine/profile";
 import { planReminder, type ReminderPlan } from "@/lib/engine/adaptive";
@@ -28,6 +35,8 @@ export interface TodayView {
   rows: PrayerRow[];
   next: NextPrayer;
   hero: HeroFocus;
+  intervalStart: Date; // start of the current inter-prayer window (for the ring)
+  prepAt: Date; // when preparation should begin (hero.at − primaryLead)
   target: { mosque: boolean; label: string };
   plan: ReminderPlan;
   prepInMinutes: number; // minutes until PREPARATION should start (<=0 = now)
@@ -107,6 +116,7 @@ export function buildToday(state: AppState, now = new Date()): TodayView | null 
   const plan = leadFor(state, hero.prayer, mosque);
   const prepStart = new Date(hero.at.getTime() - plan.primaryLead * 60_000);
   const prepInMinutes = Math.round((prepStart.getTime() - now.getTime()) / 60_000);
+  const intervalStart = previousPrayerAt(settings, now);
 
   const todays = state.logs.filter((l) => l.date === date && l.performed_at);
   const completed = todays.length;
@@ -117,6 +127,8 @@ export function buildToday(state: AppState, now = new Date()): TodayView | null 
     rows,
     next,
     hero,
+    intervalStart,
+    prepAt: prepStart,
     target: { mosque, label: targetLabel(state.goal, mosque) },
     plan,
     prepInMinutes,

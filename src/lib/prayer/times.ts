@@ -113,6 +113,17 @@ export function currentPrayer(schedule: DaySchedule, now = new Date()): PrayerNa
   return current;
 }
 
+// The most recent prayer time at or before `now` — the start of the interval the
+// countdown is running through (falls back to yesterday's Isha before Fajr).
+export function previousPrayerAt(settings: PrayerSettings, now = new Date()): Date {
+  const today = civilDate(settings.timezone, now);
+  const t = compute(settings, today);
+  const passed = PRAYERS.map((p) => t[p]).filter((d) => d.getTime() <= now.getTime());
+  if (passed.length) return passed[passed.length - 1];
+  const y = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+  return compute(settings, y).isha;
+}
+
 export function formatTime(iso: string | Date, tz: string): string {
   const d = typeof iso === "string" ? new Date(iso) : iso;
   return new Intl.DateTimeFormat("id-ID", {

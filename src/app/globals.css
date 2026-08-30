@@ -147,6 +147,16 @@ body {
   0% { transform: translateX(-100%); }
   60%, 100% { transform: translateX(220%); }
 }
+/* Countdown ring's breathing halo (colour via --glow). */
+@keyframes ringPulse {
+  0%, 100% { box-shadow: 0 0 18px -6px color-mix(in srgb, var(--glow) 22%, transparent); }
+  50% { box-shadow: 0 0 34px -2px color-mix(in srgb, var(--glow) 45%, transparent); }
+}
+/* Staggered entrance for the Today tracker rows. */
+@keyframes rowIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

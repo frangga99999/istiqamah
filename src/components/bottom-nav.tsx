@@ -1,11 +1,12 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { IconCalendar, IconClock, IconTrend } from "@/components/icons";
+import { IconCalendar, IconClock, IconMosque, IconTrend } from "@/components/icons";
 import { cx } from "@/components/ui";
 
 const items = [
   { href: "/today", label: "Hari Ini", Icon: IconClock },
+  { href: "/masjid", label: "Masjid", Icon: IconMosque },
   { href: "/journey", label: "Perjalanan", Icon: IconTrend },
   { href: "/history", label: "Riwayat", Icon: IconCalendar },
 ];

@@ -40,6 +40,21 @@ security, all owner-only). Two manual dashboard steps remain for auth:
 2. **Google (optional)** — Authentication → Providers → Google: add a Google
    Cloud OAuth client ID + secret. Not needed for magic-link sign-in.
 
+## Deploy (Vercel)
+
+The repo is private; Vercel gives it a public URL while the app stays login-gated.
+
+1. On [vercel.com](https://vercel.com) → **Add New → Project** → import
+   `frangga99999/istiqamah` (Framework auto-detects as Next.js).
+2. **Environment Variables** — add the two `NEXT_PUBLIC_` values from your local
+   `.env.local` (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`).
+3. **Deploy** → you get a URL like `https://istiqamah.vercel.app`.
+4. **Point Supabase at it** — Authentication → URL Configuration: set Site URL to
+   the Vercel URL and add `https://<your-vercel-domain>/**` to Redirect URLs, so
+   magic-link / Google sign-in redirects back correctly.
+
+Only you can sign in and see your data; the public URL just serves the app shell.
+
 ## Architecture
 
 ```

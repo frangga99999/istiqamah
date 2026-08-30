@@ -223,28 +223,45 @@ function SwitchRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-3.5">
-      <div>
+      <div className="min-w-0">
         <p className="text-[15px] text-text">{label}</p>
         {hint && <p className="mt-0.5 text-xs text-subtle">{hint}</p>}
       </div>
-      <button
-        role="switch"
-        aria-checked={on}
-        aria-label={label}
-        onClick={() => onChange(!on)}
-        className={cx(
-          "relative h-6 w-11 shrink-0 rounded-full transition-colors",
-          on ? "bg-accent" : "bg-surface-2 border border-border-strong",
-        )}
-      >
-        <span
-          className={cx(
-            "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
-            on ? "translate-x-5" : "translate-x-0.5",
-          )}
-        />
-      </button>
+      <Switch on={on} onChange={onChange} label={label} />
     </div>
+  );
+}
+
+// Toggle: knob is an in-flow flex child positioned by padding + a bounded slide.
+// No absolute/border-box math, so it can never overlap the track edge.
+export function Switch({
+  on,
+  onChange,
+  label,
+}: {
+  on: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      onClick={() => onChange(!on)}
+      className={cx(
+        "inline-flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition-colors duration-200",
+        on ? "bg-accent" : "bg-border-strong",
+      )}
+    >
+      <span
+        className={cx(
+          "h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200",
+          on ? "translate-x-5" : "translate-x-0",
+        )}
+      />
+    </button>
   );
 }
 

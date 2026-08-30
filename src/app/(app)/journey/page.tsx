@@ -2,8 +2,16 @@
 import { useState } from "react";
 import { setGoal, useApp } from "@/lib/store";
 import { computeJourney, PRAYER_LABEL } from "@/lib/journey";
+import type { BehaviorProfile } from "@/lib/types";
 import { Button, Card, cx } from "@/components/ui";
 import { IconMosque, IconSpark, IconTrend } from "@/components/icons";
+
+const RISK_BAR: Record<string, string> = {
+  LOW: "bg-ok",
+  MEDIUM: "bg-accent",
+  HIGH: "bg-warn",
+  VERY_HIGH: "bg-danger",
+};
 
 export default function JourneyPage() {
   const state = useApp();
@@ -67,6 +75,9 @@ export default function JourneyPage() {
         </div>
       </section>
 
+      {/* Per-prayer comparison chart (easy visual comparison) */}
+      <PrayerComparison rows={j.perPrayer} />
+
       {/* Trend (§53) */}
       {j.week.avgDelay != null && (
         <Card className="p-5">
@@ -111,6 +122,41 @@ export default function JourneyPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// Horizontal bar chart comparing average delay across the five prayers, coloured
+// by risk — so the worst prayer is obvious at a glance (§64 "which improved most").
+function PrayerComparison({ rows }: { rows: BehaviorProfile[] }) {
+  if (!rows.some((r) => r.sample_size > 0)) return null;
+  const max = Math.max(15, ...rows.map((r) => r.average_delay));
+  return (
+    <Card className="p-5">
+      <p className="text-sm font-medium text-muted">Perbandingan per shalat</p>
+      <p className="mt-0.5 text-xs text-subtle">Rata-rata keterlambatan tiap waktu</p>
+      <div className="mt-4 space-y-2.5">
+        {rows.map((r) => {
+          const has = r.sample_size > 0;
+          const pct = has ? Math.max(4, Math.round((r.average_delay / max) * 100)) : 0;
+          return (
+            <div key={r.prayer} className="flex items-center gap-3">
+              <span className="w-16 shrink-0 text-sm text-muted">{PRAYER_LABEL[r.prayer]}</span>
+              <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-2">
+                {has && (
+                  <div
+                    className={cx("h-full rounded-full transition-all", RISK_BAR[r.risk_level])}
+                    style={{ width: `${pct}%` }}
+                  />
+                )}
+              </div>
+              <span className="w-11 shrink-0 text-right tabular text-sm text-text">
+                {has ? `${r.average_delay}m` : "—"}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
   );
 }
 

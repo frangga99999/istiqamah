@@ -1,7 +1,7 @@
 // Weekly metrics + promotion logic for the Journey screen (PRD §52–57, §64).
-import { PRAYERS, type Goal, type PrayerLog, type PrayerName } from "@/lib/types";
+import { PRAYERS, type BehaviorProfile, type Goal, type PrayerLog, type PrayerName } from "@/lib/types";
 import { PRAYER_LABEL } from "@/lib/types";
-import { classifyQuality, delayMinutes, THRESHOLDS } from "@/lib/engine/profile";
+import { buildProfile, classifyQuality, delayMinutes, THRESHOLDS } from "@/lib/engine/profile";
 import { buildGoal } from "@/lib/focus";
 import type { AppState } from "@/lib/store";
 
@@ -100,6 +100,7 @@ export interface JourneyView {
   delayDelta: number | null; // prev.avgDelay - week.avgDelay (positive = improved)
   mostImproved: { prayer: PrayerName; from: number; to: number } | null;
   promotion: { ready: boolean; rate: number; next: Goal } | null;
+  perPrayer: BehaviorProfile[]; // one per prayer, for the comparison chart
 }
 
 export function computeJourney(state: AppState): JourneyView {
@@ -129,7 +130,9 @@ export function computeJourney(state: AppState): JourneyView {
     promotion = { ready: rate >= 0.8 && samples >= 5, rate, next: nextGoal(state.goal) };
   }
 
-  return { focus: state.goal, week, prev, delayDelta, mostImproved, promotion };
+  const perPrayer = PRAYERS.map((p) => buildProfile(p, state.logs));
+
+  return { focus: state.goal, week, prev, delayDelta, mostImproved, promotion, perPrayer };
 }
 
 export { PRAYER_LABEL };

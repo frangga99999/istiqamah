@@ -40,20 +40,29 @@ security, all owner-only). Two manual dashboard steps remain for auth:
 2. **Google (optional)** — Authentication → Providers → Google: add a Google
    Cloud OAuth client ID + secret. Not needed for magic-link sign-in.
 
-## Deploy (Vercel)
+## Deploy (GitHub Pages)
 
-The repo is private; Vercel gives it a public URL while the app stays login-gated.
+Live at **https://frangga99999.github.io/istiqamah/**. Static export under the
+`/istiqamah` base path (`NEXT_PUBLIC_BASE_PATH`), served from the `gh-pages`
+branch. Only you can sign in and see your data; the public URL just serves the shell.
 
-1. On [vercel.com](https://vercel.com) → **Add New → Project** → import
-   `frangga99999/istiqamah` (Framework auto-detects as Next.js).
-2. **Environment Variables** — add the two `NEXT_PUBLIC_` values from your local
-   `.env.local` (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`).
-3. **Deploy** → you get a URL like `https://istiqamah.vercel.app`.
-4. **Point Supabase at it** — Authentication → URL Configuration: set Site URL to
-   the Vercel URL and add `https://<your-vercel-domain>/**` to Redirect URLs, so
-   magic-link / Google sign-in redirects back correctly.
+**For sign-in to work on the live site**, add the Pages URL in Supabase →
+Authentication → URL Configuration:
+- Site URL: `https://frangga99999.github.io/istiqamah`
+- Redirect URLs: add `https://frangga99999.github.io/istiqamah/**`
 
-Only you can sign in and see your data; the public URL just serves the app shell.
+Re-deploy after changes:
+
+```bash
+NEXT_PUBLIC_BASE_PATH=/istiqamah npm run build
+cd out && touch .nojekyll && git init -q && git checkout -q -b gh-pages \
+  && git add -A && git commit -qm deploy \
+  && git push -qf https://github.com/frangga99999/istiqamah.git gh-pages && rm -rf .git
+```
+
+To make pushes auto-deploy via GitHub Actions instead, grant the `workflow` scope
+once (`gh auth refresh -s workflow`) and add a Pages workflow that builds with
+`NEXT_PUBLIC_BASE_PATH=/istiqamah` and publishes `out/`.
 
 ## Architecture
 

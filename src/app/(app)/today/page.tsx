@@ -17,6 +17,7 @@ export default function TodayPage() {
   const state = useApp();
   const now = useNow();
   const [checkIn, setCheckIn] = useState<{ prayer: PrayerName; at: Date } | null>(null);
+  const [justPrepped, setJustPrepped] = useState(false); // transient confirm state
 
   const view = state.settings ? buildToday(state, now) : null;
   useReminders(view);
@@ -37,6 +38,8 @@ export default function TodayPage() {
       prayer_start_at: heroRow.at.toISOString(),
       preparation_started_at: new Date().toISOString(),
     });
+    setJustPrepped(true);
+    setTimeout(() => setJustPrepped(false), 1400); // brief acknowledgement
   }
 
   const untilMin = minutesUntil(view.hero.at, now);
@@ -112,9 +115,21 @@ export default function TodayPage() {
 
           <div className="mt-4">
             {view.hero.isNow || prepStarted ? (
-              <Button className="w-full" onClick={() => setCheckIn({ prayer: view.hero.prayer, at: view.hero.at })}>
-                Catat Shalat
-              </Button>
+              justPrepped ? (
+                <Button key="confirm" className="w-full pointer-events-none" style={{ animation: "prepPop .4s ease-out" }}>
+                  <IconCheck width={18} height={18} strokeWidth={2.5} />
+                  Bersiap dicatat
+                </Button>
+              ) : (
+                <Button
+                  key="catat"
+                  className="w-full"
+                  style={{ animation: "ctaIn .32s ease-out" }}
+                  onClick={() => setCheckIn({ prayer: view.hero.prayer, at: view.hero.at })}
+                >
+                  Catat Shalat
+                </Button>
+              )
             ) : (
               <Button className="w-full" onClick={startPreparing}>
                 Saya Mau Bersiap

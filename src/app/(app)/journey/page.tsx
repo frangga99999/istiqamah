@@ -125,38 +125,74 @@ export default function JourneyPage() {
   );
 }
 
-// Horizontal bar chart comparing average delay across the five prayers, coloured
-// by risk — so the worst prayer is obvious at a glance (§64 "which improved most").
+const STATUS: Record<string, { label: string; pill: string }> = {
+  LOW: { label: "Baik", pill: "bg-ok/15 text-ok" },
+  MEDIUM: { label: "Cukup", pill: "bg-accent/15 text-accent" },
+  HIGH: { label: "Perlu perhatian", pill: "bg-warn/15 text-warn" },
+  VERY_HIGH: { label: "Perlu fokus", pill: "bg-danger/15 text-danger" },
+};
+
+// Per-prayer comparison, worst-first, with a qualitative tag + colour legend so
+// the numbers are immediately meaningful (§64).
 function PrayerComparison({ rows }: { rows: BehaviorProfile[] }) {
   if (!rows.some((r) => r.sample_size > 0)) return null;
   const max = Math.max(15, ...rows.map((r) => r.average_delay));
+  const sorted = [...rows].sort((a, b) => Number(b.sample_size > 0) - Number(a.sample_size > 0) || b.average_delay - a.average_delay);
+
   return (
     <Card className="p-5">
       <p className="text-sm font-medium text-muted">Perbandingan per shalat</p>
-      <p className="mt-0.5 text-xs text-subtle">Rata-rata keterlambatan tiap waktu</p>
-      <div className="mt-4 space-y-2.5">
-        {rows.map((r) => {
+      <p className="mt-0.5 text-xs text-subtle">Rata-rata keterlambatan — makin pendek makin baik</p>
+
+      <div className="mt-4 space-y-3.5">
+        {sorted.map((r) => {
           const has = r.sample_size > 0;
-          const pct = has ? Math.max(4, Math.round((r.average_delay / max) * 100)) : 0;
+          const pct = has ? Math.max(6, Math.round((r.average_delay / max) * 100)) : 0;
+          const s = STATUS[r.risk_level];
           return (
-            <div key={r.prayer} className="flex items-center gap-3">
-              <span className="w-16 shrink-0 text-sm text-muted">{PRAYER_LABEL[r.prayer]}</span>
-              <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-2">
+            <div key={r.prayer}>
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-[15px] text-text">{PRAYER_LABEL[r.prayer]}</span>
+                <span className="flex items-center gap-2">
+                  {has && (
+                    <span className={cx("rounded-full px-2 py-0.5 text-[11px] font-medium", s.pill)}>
+                      {s.label}
+                    </span>
+                  )}
+                  <span className="tabular w-9 text-right text-sm font-medium text-text">
+                    {has ? `${r.average_delay}m` : "—"}
+                  </span>
+                </span>
+              </div>
+              <div className="h-2.5 overflow-hidden rounded-full bg-surface-2">
                 {has && (
                   <div
-                    className={cx("h-full rounded-full transition-all", RISK_BAR[r.risk_level])}
+                    className={cx("h-full rounded-full transition-all duration-500", RISK_BAR[r.risk_level])}
                     style={{ width: `${pct}%` }}
                   />
                 )}
               </div>
-              <span className="w-11 shrink-0 text-right tabular text-sm text-text">
-                {has ? `${r.average_delay}m` : "—"}
-              </span>
             </div>
           );
         })}
       </div>
+
+      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 border-t border-border pt-3 text-[11px] text-subtle">
+        <Legend color="bg-ok" label="Baik" />
+        <Legend color="bg-accent" label="Cukup" />
+        <Legend color="bg-warn" label="Perhatian" />
+        <Legend color="bg-danger" label="Fokus" />
+      </div>
     </Card>
+  );
+}
+
+function Legend({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className={cx("h-2 w-2 rounded-full", color)} />
+      {label}
+    </span>
   );
 }
 

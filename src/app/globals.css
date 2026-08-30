@@ -126,6 +126,17 @@ body {
   border-radius: 6px;
 }
 
+/* CTA feedback: prep confirmation pops, then "Catat Shalat" eases in (PRD §7.2). */
+@keyframes prepPop {
+  0% { transform: scale(0.96); opacity: 0.5; }
+  55% { transform: scale(1.03); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes ctaIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

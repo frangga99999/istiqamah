@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PerformedLocation, PrayerName } from "@/lib/types";
 import { PRAYER_LABEL } from "@/lib/types";
 import { useApp, upsertLog } from "@/lib/store";
@@ -101,16 +101,13 @@ export function CheckIn({
             ))}
           </div>
 
-          {showTime ? (
-            <label className="flex items-center justify-between rounded-xl bg-surface-2 px-4 py-3 text-sm">
-              <span className="text-muted">Waktu shalat</span>
-              <input
-                type="time"
-                defaultValue={new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" }).format(new Date())}
-                onChange={(e) => setTime(e.target.value)}
-                className="bg-transparent text-text tabular focus:outline-none"
-              />
-            </label>
+          {time ? (
+            <button
+              onClick={() => setShowTime(true)}
+              className="mx-auto flex items-center gap-1.5 text-sm text-muted hover:text-text"
+            >
+              Shalat pukul <span className="tabular font-medium text-text">{time}</span> · ubah
+            </button>
           ) : (
             <button
               onClick={() => setShowTime(true)}
@@ -119,6 +116,13 @@ export function CheckIn({
               Shalat pada waktu lain? Ubah waktu
             </button>
           )}
+
+          <TimeDrawer
+            open={showTime}
+            onClose={() => setShowTime(false)}
+            value={time ?? nowHHMM()}
+            onConfirm={(v) => setTime(v)}
+          />
         </div>
       ) : (
         <div className="space-y-4">
@@ -140,6 +144,88 @@ export function CheckIn({
         </div>
       )}
     </Sheet>
+  );
+}
+
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+function nowHHMM() {
+  return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" }).format(new Date());
+}
+
+// iOS-style time picker in a drawer: two tappable, centre-scrolling columns.
+function TimeDrawer({
+  open,
+  onClose,
+  value,
+  onConfirm,
+}: {
+  open: boolean;
+  onClose: () => void;
+  value: string;
+  onConfirm: (v: string) => void;
+}) {
+  const [hh, mm] = value.split(":").map(Number);
+  const [h, setH] = useState(Number.isNaN(hh) ? 12 : hh);
+  const [m, setM] = useState(Number.isNaN(mm) ? 0 : mm);
+  return (
+    <Sheet open={open} onClose={onClose} title="Waktu shalat">
+      <div className="relative flex items-stretch gap-3">
+        {/* centre selection guide */}
+        <div className="pointer-events-none absolute inset-x-0 top-1/2 z-10 mt-3 h-11 -translate-y-1/2 rounded-xl border border-accent/30" />
+        <WheelCol label="Jam" count={24} value={h} onSelect={setH} />
+        <WheelCol label="Menit" count={60} value={m} onSelect={setM} />
+      </div>
+      <Button
+        className="mt-4 w-full"
+        onClick={() => {
+          onConfirm(`${pad2(h)}:${pad2(m)}`);
+          onClose();
+        }}
+      >
+        Simpan waktu
+      </Button>
+    </Sheet>
+  );
+}
+
+function WheelCol({
+  label,
+  count,
+  value,
+  onSelect,
+}: {
+  label: string;
+  count: number;
+  value: number;
+  onSelect: (n: number) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    ref.current?.querySelector<HTMLElement>('[data-sel="true"]')?.scrollIntoView({ block: "center" });
+    // centre the initial selection once when the drawer mounts
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <div className="flex-1">
+      <p className="mb-1.5 text-center text-xs text-subtle">{label}</p>
+      <div ref={ref} className="h-44 overflow-y-auto rounded-2xl bg-surface-2 py-[76px] [scrollbar-width:none]">
+        {Array.from({ length: count }, (_, n) => (
+          <button
+            key={n}
+            data-sel={n === value}
+            onClick={() => onSelect(n)}
+            className={cx(
+              "block w-full py-1.5 text-center tabular text-lg transition-all",
+              n === value ? "scale-110 font-semibold text-accent" : "text-subtle hover:text-muted",
+            )}
+          >
+            {pad2(n)}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

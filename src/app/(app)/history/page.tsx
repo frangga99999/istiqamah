@@ -7,6 +7,7 @@ import { delayMinutes } from "@/lib/engine/profile";
 import { longDate } from "@/lib/format";
 import { Card, Sheet, cx } from "@/components/ui";
 import { LogGlyph } from "@/components/prayer-status";
+import { IconChevron } from "@/components/icons";
 
 const LOC_LABEL = { mosque: "Masjid", congregation: "Berjamaah", alone: "Sendiri" } as const;
 
@@ -40,6 +41,13 @@ export default function HistoryPage() {
   const state = useApp();
   const [detail, setDetail] = useState<PrayerLog | null>(null);
   const [range, setRange] = useState<RangeKey>("7d");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set()); // collapsed by default
+  const toggleDay = (d: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(d) ? next.delete(d) : next.add(d);
+      return next;
+    });
   if (!state.settings) return null;
   const tz = state.settings.timezone;
 
@@ -90,45 +98,72 @@ export default function HistoryPage() {
         <p className="px-1 text-sm text-muted">Belum ada catatan pada rentang ini.</p>
       )}
 
-      <div className="space-y-5">
+      <div className="space-y-3">
         {loggedDates.map((date) => {
           const dayDate = new Date(`${date}T12:00:00`);
+          const dayLogs = PRAYERS.map((p) => state.logs.find((l) => l.date === date && l.prayer === p));
+          const doneCount = dayLogs.filter((l) => l?.performed_at).length;
+          const isOpen = expanded.has(date);
           return (
-            <section key={date}>
-              <h2 className="mb-2 px-1 text-sm font-medium text-muted">{longDate(dayDate, tz)}</h2>
-              <Card className="divide-y divide-border">
-                {PRAYERS.map((prayer) => {
-                  const log = state.logs.find((l) => l.date === date && l.prayer === prayer);
-                  const done = Boolean(log?.performed_at);
-                  return (
-                    <button
-                      key={prayer}
-                      disabled={!log}
-                      onClick={() => log && setDetail(log)}
-                      className={cx(
-                        "flex w-full items-center justify-between px-4 py-3 text-left",
-                        log ? "hover:bg-surface-2" : "cursor-default",
-                      )}
-                    >
-                      <span className="flex items-center gap-3">
-                        <LogGlyph performed={done} loc={log?.performed_location} />
-                        <span className={cx("text-[15px]", done ? "text-text" : "text-subtle")}>
-                          {PRAYER_LABEL[prayer]}
-                        </span>
-                        {log?.performed_location === "mosque" && (
-                          <span className="rounded-full bg-mosque-soft px-2 py-0.5 text-[11px] text-mosque">
-                            masjid
-                          </span>
+            <Card key={date} className="overflow-hidden">
+              <button
+                onClick={() => toggleDay(date)}
+                aria-expanded={isOpen}
+                className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left hover:bg-surface-2"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-text">{longDate(dayDate, tz)}</p>
+                  <div className="mt-2 flex items-center gap-1.5">
+                    {dayLogs.map((l, i) => (
+                      <MiniDot key={i} log={l} />
+                    ))}
+                  </div>
+                </div>
+                <span className="flex shrink-0 items-center gap-2 text-sm text-subtle">
+                  <span className="tabular">{doneCount}/5</span>
+                  <IconChevron
+                    width={16}
+                    height={16}
+                    className={cx("transition-transform duration-200", isOpen && "rotate-90")}
+                  />
+                </span>
+              </button>
+
+              {isOpen && (
+                <div className="divide-y divide-border border-t border-border">
+                  {PRAYERS.map((prayer) => {
+                    const log = state.logs.find((l) => l.date === date && l.prayer === prayer);
+                    const done = Boolean(log?.performed_at);
+                    return (
+                      <button
+                        key={prayer}
+                        disabled={!log}
+                        onClick={() => log && setDetail(log)}
+                        className={cx(
+                          "flex w-full items-center justify-between px-4 py-3 text-left",
+                          log ? "hover:bg-surface-2" : "cursor-default",
                         )}
-                      </span>
-                      <span className="tabular text-sm text-subtle">
-                        {log?.performed_at ? formatTime(log.performed_at, tz) : "—"}
-                      </span>
-                    </button>
-                  );
-                })}
-              </Card>
-            </section>
+                      >
+                        <span className="flex items-center gap-3">
+                          <LogGlyph performed={done} loc={log?.performed_location} />
+                          <span className={cx("text-[15px]", done ? "text-text" : "text-subtle")}>
+                            {PRAYER_LABEL[prayer]}
+                          </span>
+                          {log?.performed_location === "mosque" && (
+                            <span className="rounded-full bg-mosque-soft px-2 py-0.5 text-[11px] text-mosque">
+                              masjid
+                            </span>
+                          )}
+                        </span>
+                        <span className="tabular text-sm text-subtle">
+                          {log?.performed_at ? formatTime(log.performed_at, tz) : "—"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
           );
         })}
       </div>
@@ -136,6 +171,20 @@ export default function HistoryPage() {
       <DetailSheet log={detail} tz={tz} onClose={() => setDetail(null)} />
     </div>
   );
+}
+
+// Compact per-prayer status dot for the collapsed day header.
+function MiniDot({ log }: { log?: PrayerLog }) {
+  if (log?.performed_at) {
+    const c =
+      log.performed_location === "mosque"
+        ? "bg-mosque"
+        : log.performed_location === "congregation"
+          ? "bg-accent"
+          : "bg-ok";
+    return <span className={cx("h-2 w-2 rounded-full", c)} />;
+  }
+  return <span className="h-2 w-2 rounded-full border border-border-strong" />;
 }
 
 function SummaryStat({ value, label, tone }: { value: number; label: string; tone?: "ok" | "mosque" }) {

@@ -7,7 +7,7 @@ import { CALC_METHODS } from "@/lib/prayer/times";
 import { CITIES } from "@/lib/cities";
 import { PRAYERS, PRAYER_LABEL, type PrayerName } from "@/lib/types";
 import { Button, Card, Sheet, cx } from "@/components/ui";
-import { IconBack, IconChevron } from "@/components/icons";
+import { IconBack, IconCheck, IconChevron } from "@/components/icons";
 import { enableNotifications, notifyStatus } from "@/lib/notify";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase/client";
 
@@ -265,6 +265,8 @@ export function Switch({
   );
 }
 
+// iOS Settings-style picker: the row shows the current value; tapping it opens a
+// bottom-sheet drawer with the options as a checkmark list (no native <select>).
 function SelectRow({
   label,
   value,
@@ -276,21 +278,41 @@ function SelectRow({
   options: { value: string; label: string }[];
   onChange: (v: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const current = options.find((o) => o.value === value)?.label ?? value;
   return (
-    <label className="flex items-center justify-between gap-3 px-4 py-3.5">
-      <span className="text-[15px] text-text">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="max-w-[55%] rounded-lg bg-surface-2 px-3 py-1.5 text-sm text-text focus:outline-none"
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left hover:bg-surface-2"
       >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </label>
+        <span className="shrink-0 text-[15px] text-text">{label}</span>
+        <span className="flex min-w-0 items-center gap-1.5 text-sm text-subtle">
+          <span className="truncate">{current}</span>
+          <IconChevron width={16} height={16} className="shrink-0" />
+        </span>
+      </button>
+      <Sheet open={open} onClose={() => setOpen(false)} title={label}>
+        <div className="space-y-1">
+          {options.map((o) => (
+            <button
+              key={o.value}
+              onClick={() => {
+                onChange(o.value);
+                setOpen(false);
+              }}
+              className={cx(
+                "flex w-full items-center justify-between rounded-xl px-4 py-3.5 text-left text-[15px] transition-colors",
+                o.value === value ? "bg-accent-soft text-accent" : "text-text hover:bg-surface-2",
+              )}
+            >
+              {o.label}
+              {o.value === value && <IconCheck width={18} height={18} strokeWidth={2.5} />}
+            </button>
+          ))}
+        </div>
+      </Sheet>
+    </>
   );
 }
 

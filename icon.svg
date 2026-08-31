@@ -1,0 +1,13 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2f7d68"/>
+      <stop offset="1" stop-color="#1f5a4b"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#g)"/>
+  <!-- crescent: outer disc minus offset disc -->
+  <path d="M300 128a132 132 0 1 0 0 256 108 108 0 1 1 0-256z" fill="#e8f3ee"/>
+  <!-- subtle arch base, hints a mihrab without ornament -->
+  <path d="M188 388h136" stroke="#e8f3ee" stroke-width="14" stroke-linecap="round" opacity="0.45"/>
+</svg>

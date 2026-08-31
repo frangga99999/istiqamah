@@ -273,7 +273,7 @@ function CountdownHero({ view, now, tz }: { view: TodayView; now: Date; tz: stri
         />
 
         <div className="relative z-10 px-6 text-center">
-          <p className="tabular text-[42px] font-bold leading-none text-text">{big}</p>
+          <p className="tabular text-[34px] font-bold leading-none text-text">{big}</p>
           <p className="mt-2 text-xs text-subtle">
             {hero.isNow ? "waktunya shalat" : `adzan · ${formatTime(hero.at, tz)}`}
           </p>

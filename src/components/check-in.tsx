@@ -4,7 +4,8 @@ import type { PerformedLocation, PrayerName } from "@/lib/types";
 import { PRAYER_LABEL } from "@/lib/types";
 import { useApp, upsertLog } from "@/lib/store";
 import { Button, Sheet, cx } from "@/components/ui";
-import { IconCheck, IconMosque, IconPerson, IconUsers } from "@/components/icons";
+import { IconCheck, IconClock, IconMosque, IconPerson, IconUsers } from "@/components/icons";
+import { playHappy, playSad } from "@/lib/sound";
 
 const LOCATIONS: { key: PerformedLocation; label: string; Icon: typeof IconMosque; accent: boolean }[] = [
   { key: "mosque", label: "Masjid", Icon: IconMosque, accent: true },
@@ -77,6 +78,7 @@ export function CheckIn({
     setLocation(loc);
     setPerfAt(at);
     persist(loc, at, before, after, time != null);
+    if (prefs.sound) playHappy();
     if (prefs.sunnah_tracking) setStep("sunnah");
     else close();
   }
@@ -84,6 +86,7 @@ export function CheckIn({
   // "I didn't get to pray this one" — record it honestly as missed (§102).
   function saveMissed() {
     upsertLog({ date, prayer, prayer_start_at: prayerStartISO, performed_at: null, missed: true });
+    if (prefs.sound) playSad();
     close();
   }
 
@@ -118,33 +121,28 @@ export function CheckIn({
             ))}
           </div>
 
-          {time ? (
+          {/* Secondary actions — visible but calm; the location buttons stay primary. */}
+          <div className="flex items-center justify-center gap-2">
             <button
               onClick={() => setShowTime(true)}
-              className="mx-auto flex items-center gap-1.5 text-sm text-muted hover:text-text"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2/60 px-3.5 py-2 text-sm text-muted transition hover:border-border-strong hover:text-text"
             >
-              Shalat pukul <span className="tabular font-medium text-text">{time}</span> · ubah
+              <IconClock width={15} height={15} />
+              Waktu
+              <span className="tabular font-medium text-text">{time ?? "sekarang"}</span>
             </button>
-          ) : (
-            <button
-              onClick={() => setShowTime(true)}
-              className="mx-auto block text-xs text-subtle underline underline-offset-4 hover:text-muted"
-            >
-              Shalat pada waktu lain? Ubah waktu
-            </button>
-          )}
-
-          <div className="border-t border-border pt-3.5">
             <button
               onClick={saveMissed}
-              className="mx-auto flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm text-muted transition hover:bg-danger-soft hover:text-danger"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2/60 px-3.5 py-2 text-sm text-muted transition hover:border-danger/50 hover:text-danger"
             >
-              <span className="grid h-5 w-5 place-items-center rounded-full border border-current text-xs leading-none">
-                —
-              </span>
-              Belum sempat — tandai terlewat
+              <span className="grid h-4 w-4 place-items-center rounded-full border border-current text-[10px] leading-none">—</span>
+              Belum sempat
             </button>
           </div>
+          <p className="text-center text-xs leading-relaxed text-subtle">
+            Ketuk <span className="text-muted">Waktu</span> jika kamu shalat lebih awal, atau{" "}
+            <span className="text-muted">Belum sempat</span> jika terlewat.
+          </p>
 
           <TimeDrawer
             open={showTime}

@@ -6,6 +6,7 @@ import { buildToday, type PrayerRow, type TodayView } from "@/lib/today";
 import { PRAYER_LABEL, type PrayerName } from "@/lib/types";
 import { formatTime } from "@/lib/prayer/times";
 import { longDate } from "@/lib/format";
+import { quoteOfDay } from "@/lib/quotes";
 import { Button, Card, cx } from "@/components/ui";
 import { CheckIn } from "@/components/check-in";
 import { IconBell, IconCheck, IconChevron, IconMosque, IconSpark, IconUsers } from "@/components/icons";
@@ -23,6 +24,7 @@ export default function TodayPage() {
   if (!state.settings || !view) return null; // gate shows splash until onboarded
   const tz = state.settings.timezone;
   const remindersOff = notifyStatus() === "default";
+  const quote = quoteOfDay(view.date);
 
   const heroRow = view.hero.isTomorrow
     ? undefined
@@ -107,14 +109,15 @@ export default function TodayPage() {
           <div className="mt-4">
             {view.hero.isNow || prepStarted ? (
               justPrepped ? (
-                <Button key="confirm" className="w-full pointer-events-none" style={{ animation: "prepPop .4s ease-out" }}>
-                  <IconCheck width={18} height={18} strokeWidth={2.5} />
+                <Button key="confirm" variant="hero" className="w-full pointer-events-none py-4 text-base" style={{ animation: "prepPop .4s ease-out" }}>
+                  <IconCheck width={19} height={19} strokeWidth={2.5} />
                   Bersiap dicatat
                 </Button>
               ) : (
                 <Button
                   key="catat"
-                  className="relative w-full overflow-hidden"
+                  variant="hero"
+                  className="relative w-full overflow-hidden py-4 text-base"
                   style={{ animation: "ctaIn .32s ease-out" }}
                   onClick={() => {
                     tap();
@@ -122,18 +125,21 @@ export default function TodayPage() {
                   }}
                 >
                   <Shine />
+                  <IconCheck width={19} height={19} strokeWidth={2.25} />
                   Catat Shalat
                 </Button>
               )
             ) : (
               <Button
-                className="relative w-full overflow-hidden"
+                variant="hero"
+                className="relative w-full overflow-hidden py-4 text-base"
                 onClick={() => {
                   tap();
                   startPreparing();
                 }}
               >
                 <Shine />
+                <IconMosque width={19} height={19} />
                 Saya Mau Bersiap
               </Button>
             )}
@@ -143,9 +149,14 @@ export default function TodayPage() {
 
       {/* ── INSIGHT (invisible assistant, §65) ───────────── */}
       {!view.hero.isTomorrow && (
-        <div className="flex items-start gap-2.5 px-1 text-[13px] leading-relaxed text-muted">
-          <IconSpark width={16} height={16} className="mt-0.5 shrink-0 text-accent" />
-          <p>{view.plan.reason}</p>
+        <div className="flex items-start gap-3 rounded-2xl border border-accent/15 bg-accent-soft/40 p-4">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent/15 text-accent">
+            <IconSpark width={18} height={18} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">Catatan asisten</p>
+            <p className="mt-0.5 text-sm leading-relaxed text-text">{view.plan.reason}</p>
+          </div>
         </div>
       )}
 
@@ -168,6 +179,14 @@ export default function TodayPage() {
           ))}
         </Card>
       </section>
+
+      {/* ── Subtle daily quote (§ sweetener) ──────────────── */}
+      <figure className="px-3 pt-2 text-center">
+        <blockquote className="text-[13px] italic leading-relaxed text-muted">
+          “{quote.text}”
+        </blockquote>
+        <figcaption className="mt-1.5 text-[11px] text-subtle">— {quote.source}</figcaption>
+      </figure>
 
       {checkIn && view && (
         <CheckIn
@@ -211,49 +230,54 @@ function CountdownHero({ view, now, tz }: { view: TodayView; now: Date; tz: stri
   const prepReached = nowMs >= prepAt.getTime();
 
   return (
-    <div className="relative mx-auto flex h-[224px] w-[224px] items-center justify-center">
-      <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full -rotate-90">
-        <circle cx="60" cy="60" r={R} fill="none" stroke="var(--surface-2)" strokeWidth="7" />
-        <circle
-          cx="60"
-          cy="60"
-          r={R}
-          fill="none"
-          stroke={color}
-          strokeWidth="7"
-          strokeLinecap="round"
-          strokeDasharray={C}
-          strokeDashoffset={C * (1 - progress)}
-          style={{ transition: "stroke-dashoffset 1s linear", filter: `drop-shadow(0 0 5px ${color})` }}
-        />
-        {!hero.isNow && prepFrac > 0.02 && prepFrac < 0.99 && (
-          <circle cx={mx} cy={my} r="4.5" fill="var(--surface)" stroke={color} strokeWidth="2.5" />
-        )}
-      </svg>
-
-      {/* gentle breathing halo, warmer/faster when it's time to get ready */}
-      <div
-        className="pointer-events-none absolute inset-4 rounded-full"
-        style={
-          {
-            animation: `ringPulse ${prepReached && !hero.isNow ? 1.6 : 3}s ease-in-out infinite`,
-            ["--glow"]: color,
-          } as CSSProperties
-        }
-      />
-
-      <div className="relative z-10 px-6 text-center">
-        <p className="text-sm font-semibold uppercase tracking-widest" style={{ color }}>
+    <div className="flex flex-col items-center">
+      {/* Prominent prayer name — countdown + adzan time stay in the ring below. */}
+      <div className="mb-3 text-center">
+        <p className="text-xs font-medium uppercase tracking-[0.2em]" style={{ color }}>
+          {hero.isNow ? "waktunya" : hero.isTomorrow ? "besok" : "menuju"}
+        </p>
+        <h1 className="mt-1 text-[34px] font-bold leading-none tracking-tight text-text">
           {PRAYER_LABEL[hero.prayer]}
-        </p>
-        <p className="tabular mt-1 text-[40px] font-bold leading-none text-text">{big}</p>
-        <p className="mt-2 text-xs text-subtle">
-          {hero.isNow
-            ? "waktunya shalat"
-            : hero.isTomorrow
-              ? `besok · ${formatTime(hero.at, tz)}`
-              : `menuju adzan · ${formatTime(hero.at, tz)}`}
-        </p>
+        </h1>
+      </div>
+
+      <div className="relative flex h-[220px] w-[220px] items-center justify-center">
+        <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full -rotate-90">
+          <circle cx="60" cy="60" r={R} fill="none" stroke="var(--surface-2)" strokeWidth="7" />
+          <circle
+            cx="60"
+            cy="60"
+            r={R}
+            fill="none"
+            stroke={color}
+            strokeWidth="7"
+            strokeLinecap="round"
+            strokeDasharray={C}
+            strokeDashoffset={C * (1 - progress)}
+            style={{ transition: "stroke-dashoffset 1s linear", filter: `drop-shadow(0 0 5px ${color})` }}
+          />
+          {!hero.isNow && prepFrac > 0.02 && prepFrac < 0.99 && (
+            <circle cx={mx} cy={my} r="4.5" fill="var(--surface)" stroke={color} strokeWidth="2.5" />
+          )}
+        </svg>
+
+        {/* gentle breathing halo, warmer/faster when it's time to get ready */}
+        <div
+          className="pointer-events-none absolute inset-4 rounded-full"
+          style={
+            {
+              animation: `ringPulse ${prepReached && !hero.isNow ? 1.6 : 3}s ease-in-out infinite`,
+              ["--glow"]: color,
+            } as CSSProperties
+          }
+        />
+
+        <div className="relative z-10 px-6 text-center">
+          <p className="tabular text-[42px] font-bold leading-none text-text">{big}</p>
+          <p className="mt-2 text-xs text-subtle">
+            {hero.isNow ? "waktunya shalat" : `adzan · ${formatTime(hero.at, tz)}`}
+          </p>
+        </div>
       </div>
     </div>
   );

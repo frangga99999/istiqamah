@@ -32,6 +32,7 @@ export function CheckIn({
   const [before, setBefore] = useState(false);
   const [after, setAfter] = useState(false);
   const [showTime, setShowTime] = useState(false);
+  const [perfAt, setPerfAt] = useState<string | null>(null); // locked performed time
 
   function reset() {
     setStep("location");
@@ -40,6 +41,7 @@ export function CheckIn({
     setBefore(false);
     setAfter(false);
     setShowTime(false);
+    setPerfAt(null);
   }
   function close() {
     reset();
@@ -53,33 +55,48 @@ export function CheckIn({
     return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
   }
 
-  function save(loc: PerformedLocation, finish: boolean) {
+  // Writes the log with a fixed performed time, so toggling sunnah later never
+  // shifts the recorded time. Sunnah changes persist immediately (recorded well).
+  function persist(loc: PerformedLocation, at: string, b: boolean, a: boolean, manual: boolean) {
     upsertLog({
       date,
       prayer,
       prayer_start_at: prayerStartISO,
-      performed_at: performedAtISO(),
+      performed_at: at,
       performed_location: loc,
       congregational: loc !== "alone",
-      sunnah_before: before,
-      sunnah_after: after,
-      manual_time: time != null,
+      sunnah_before: b,
+      sunnah_after: a,
+      manual_time: manual,
+      missed: false,
     });
-    if (finish) close();
   }
 
   function pickLocation(loc: PerformedLocation) {
+    const at = performedAtISO();
     setLocation(loc);
-    if (prefs.sunnah_tracking) {
-      save(loc, false); // record now; sunnah is an optional add-on
-      setStep("sunnah");
-    } else {
-      save(loc, true);
-    }
+    setPerfAt(at);
+    persist(loc, at, before, after, time != null);
+    if (prefs.sunnah_tracking) setStep("sunnah");
+    else close();
+  }
+
+  // "I didn't get to pray this one" — record it honestly as missed (§102).
+  function saveMissed() {
+    upsertLog({ date, prayer, prayer_start_at: prayerStartISO, performed_at: null, missed: true });
+    close();
+  }
+
+  function toggleSunnah(kind: "before" | "after") {
+    const b = kind === "before" ? !before : before;
+    const a = kind === "after" ? !after : after;
+    setBefore(b);
+    setAfter(a);
+    if (location && perfAt) persist(location, perfAt, b, a, time != null);
   }
 
   return (
-    <Sheet open={open} onClose={close} title={step === "location" ? "Sudah shalat?" : "Sunnah?"}>
+    <Sheet open={open} onClose={close} title={step === "location" ? "Sudah shalat?" : "Sunnah rawatib"}>
       {step === "location" ? (
         <div className="space-y-4">
           <p className="-mt-2 text-center text-sm text-muted">{PRAYER_LABEL[prayer]}</p>
@@ -117,30 +134,41 @@ export function CheckIn({
             </button>
           )}
 
+          <div className="border-t border-border pt-3.5">
+            <button
+              onClick={saveMissed}
+              className="mx-auto flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm text-muted transition hover:bg-danger-soft hover:text-danger"
+            >
+              <span className="grid h-5 w-5 place-items-center rounded-full border border-current text-xs leading-none">
+                —
+              </span>
+              Belum sempat — tandai terlewat
+            </button>
+          </div>
+
           <TimeDrawer
             open={showTime}
             onClose={() => setShowTime(false)}
             value={time ?? nowHHMM()}
-            onConfirm={(v) => setTime(v)}
+            onConfirm={(v) => {
+              setTime(v);
+              const d = new Date(`${date}T${v}:00`);
+              const at = isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+              setPerfAt(at);
+              if (location) persist(location, at, before, after, true);
+            }}
           />
         </div>
       ) : (
         <div className="space-y-4">
+          <p className="-mt-2 text-center text-sm text-muted">Tandai sunnah rawatib yang kamu kerjakan</p>
           <div className="grid grid-cols-2 gap-2.5">
-            <Toggle label="Sunnah sebelum" on={before} onClick={() => setBefore((v) => !v)} />
-            <Toggle label="Sunnah sesudah" on={after} onClick={() => setAfter((v) => !v)} />
+            <Toggle label="Qobliyah" hint="sebelum shalat" on={before} onClick={() => toggleSunnah("before")} />
+            <Toggle label="Ba'diyah" hint="sesudah shalat" on={after} onClick={() => toggleSunnah("after")} />
           </div>
-          <div className="flex gap-2">
-            <Button variant="ghost" className="flex-1" onClick={close}>
-              Lewati
-            </Button>
-            <Button
-              className="flex-1"
-              onClick={() => location && save(location, true)}
-            >
-              Selesai
-            </Button>
-          </div>
+          <Button className="w-full" onClick={close}>
+            Selesai
+          </Button>
         </div>
       )}
     </Sheet>
@@ -264,26 +292,39 @@ function WheelCol({
   );
 }
 
-function Toggle({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
+function Toggle({
+  label,
+  hint,
+  on,
+  onClick,
+}: {
+  label: string;
+  hint?: string;
+  on: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       onClick={onClick}
       aria-pressed={on}
       className={cx(
-        "flex items-center justify-between rounded-xl border px-4 py-3.5 text-sm font-medium transition",
+        "flex items-center justify-between gap-2 rounded-2xl border px-4 py-3.5 text-left transition active:scale-[0.98]",
         on
-          ? "border-accent bg-accent-soft text-accent"
-          : "border-border bg-surface-2 text-muted hover:border-border-strong",
+          ? "border-accent bg-accent-soft"
+          : "border-border bg-surface-2 hover:border-border-strong",
       )}
     >
-      {label}
+      <span className="min-w-0">
+        <span className={cx("block text-sm font-semibold", on ? "text-accent" : "text-text")}>{label}</span>
+        {hint && <span className="block text-xs text-subtle">{hint}</span>}
+      </span>
       <span
         className={cx(
-          "grid h-5 w-5 place-items-center rounded-full border",
+          "grid h-6 w-6 shrink-0 place-items-center rounded-full border transition",
           on ? "border-accent bg-accent text-accent-fg" : "border-border-strong",
         )}
       >
-        {on && <IconCheck width={13} height={13} strokeWidth={2.5} />}
+        {on && <IconCheck width={14} height={14} strokeWidth={2.5} />}
       </span>
     </button>
   );

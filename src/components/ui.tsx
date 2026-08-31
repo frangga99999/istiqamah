@@ -5,12 +5,14 @@ function cx(...c: (string | false | undefined)[]) {
   return c.filter(Boolean).join(" ");
 }
 
-type Variant = "primary" | "secondary" | "ghost" | "danger";
+type Variant = "primary" | "secondary" | "ghost" | "danger" | "hero";
 const variants: Record<Variant, string> = {
-  primary: "bg-accent text-accent-fg hover:bg-accent-strong active:scale-[0.99]",
-  secondary: "bg-surface-2 text-text hover:bg-border active:scale-[0.99]",
-  ghost: "bg-transparent text-muted hover:text-text hover:bg-surface-2",
-  danger: "bg-danger-soft text-danger hover:brightness-95",
+  primary: "rounded-xl bg-accent text-accent-fg hover:bg-accent-strong active:scale-[0.99]",
+  secondary: "rounded-xl bg-surface-2 text-text hover:bg-border active:scale-[0.99]",
+  ghost: "rounded-xl bg-transparent text-muted hover:text-text hover:bg-surface-2",
+  danger: "rounded-xl bg-danger-soft text-danger hover:brightness-95",
+  // Prominent pill CTA: gradient + soft glow, for the primary action on Home.
+  hero: "rounded-full bg-gradient-to-b from-accent to-accent-strong text-accent-fg shadow-lg shadow-accent/25 hover:brightness-[1.06] active:scale-[0.98]",
 };
 
 export function Button({
@@ -22,7 +24,7 @@ export function Button({
   return (
     <button
       className={cx(
-        "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-[15px] font-medium",
+        "inline-flex min-h-12 items-center justify-center gap-2 px-5 text-[15px] font-medium",
         "transition disabled:opacity-40 disabled:pointer-events-none",
         variants[variant],
         className,

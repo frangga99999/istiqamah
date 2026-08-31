@@ -89,6 +89,7 @@ export interface PrayerLog {
   sunnah_before?: boolean;
   sunnah_after?: boolean;
   manual_time?: boolean; // user corrected the time (PRD §29)
+  missed?: boolean; // user explicitly marked this prayer as missed (§102)
 }
 
 // PRD §76 — rolling behaviour profile per prayer, the engine's memory.

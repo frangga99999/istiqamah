@@ -98,14 +98,16 @@ export function buildToday(state: AppState, now = new Date()): TodayView | null 
     const mosque = isMosqueTarget(state, prayer);
     const plan = leadFor(state, prayer, mosque);
     const lateRiskAfter = state.goal?.goal_type === "reduce_delay" ? state.goal.target_value ?? THRESHOLDS.onTime : THRESHOLDS.onTime;
-    const s = prayerState({
-      start: starts[i],
-      windowEnd: i < 4 ? starts[i + 1] : tmrFajr,
-      now,
-      performedAt: log?.performed_at ? new Date(log.performed_at) : null,
-      leadTimeMin: plan.primaryLead,
-      lateRiskAfterMin: lateRiskAfter,
-    });
+    const s: PrayerState = log?.missed
+      ? "MISSED"
+      : prayerState({
+          start: starts[i],
+          windowEnd: i < 4 ? starts[i + 1] : tmrFajr,
+          now,
+          performedAt: log?.performed_at ? new Date(log.performed_at) : null,
+          leadTimeMin: plan.primaryLead,
+          lateRiskAfterMin: lateRiskAfter,
+        });
     return { prayer, at: starts[i], state: s, log };
   });
 

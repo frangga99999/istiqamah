@@ -71,7 +71,9 @@ export function formatDistance(m: number): string {
   return m < 1000 ? `${m} m` : `${(m / 1000).toFixed(1)} km`;
 }
 
-// Opens the device's maps app with walking/driving directions to the mosque.
-export function directionsUrl(m: Mosque): string {
-  return `https://www.google.com/maps/dir/?api=1&destination=${m.lat},${m.lon}`;
+// Universal Google Maps link — opens the mosque's location in the Maps app where
+// installed (Android/iOS), or Maps web otherwise. From there directions are one tap.
+export function mapsUrl(m: Mosque): string {
+  const q = encodeURIComponent(`${m.name} ${m.lat},${m.lon}`);
+  return `https://www.google.com/maps/search/?api=1&query=${q}`;
 }

@@ -100,6 +100,13 @@ export const IconSpark = (p: P) => (
   </svg>
 );
 
+export const IconPin = (p: P) => (
+  <svg {...base(p)} aria-hidden>
+    <path d="M12 21s-6-5.2-6-10a6 6 0 0 1 12 0c0 4.8-6 10-6 10z" />
+    <circle cx="12" cy="11" r="2.2" />
+  </svg>
+);
+
 export const IconDot = (p: P) => (
   <svg {...base(p)} aria-hidden>
     <circle cx="12" cy="12" r="4.5" />

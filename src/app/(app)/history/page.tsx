@@ -71,6 +71,7 @@ export default function HistoryPage() {
   const todaySchedule = scheduleForDay(state.settings, now);
   const circleState = (d: string, p: PrayerName, log?: PrayerLog): "done" | "missed" | "upcoming" => {
     if (log?.performed_at) return "done";
+    if (log?.missed) return "missed";
     if (d < todayKey) return "missed";
     if (d === todayKey) {
       return new Date(todaySchedule.times[p]).getTime() <= now.getTime() ? "missed" : "upcoming";

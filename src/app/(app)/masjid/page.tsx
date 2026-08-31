@@ -1,9 +1,9 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "@/lib/store";
-import { fetchNearbyMosques, formatDistance, directionsUrl, type Mosque } from "@/lib/mosques";
+import { fetchNearbyMosques, formatDistance, mapsUrl, type Mosque } from "@/lib/mosques";
 import { Button, Card, cx } from "@/components/ui";
-import { IconMosque, IconChevron } from "@/components/icons";
+import { IconMosque, IconPin } from "@/components/icons";
 
 type Center = { lat: number; lon: number; label: string };
 
@@ -124,9 +124,21 @@ export default function MasjidPage() {
   );
 }
 
+// The whole card is a link: tapping it opens the mosque in Google Maps / the
+// device's map app (where directions are one tap away).
 function MosqueCard({ mosque, highlight }: { mosque: Mosque; highlight?: boolean }) {
   return (
-    <Card className={cx("flex items-center gap-3.5 p-4", highlight && "border-mosque/40 bg-mosque-soft")}>
+    <a
+      href={mapsUrl(mosque)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cx(
+        "flex items-center gap-3.5 rounded-2xl border p-4 transition active:scale-[0.99]",
+        highlight
+          ? "border-mosque/40 bg-mosque-soft"
+          : "border-border bg-surface hover:border-border-strong hover:bg-surface-2",
+      )}
+    >
       <span
         className={cx(
           "grid h-11 w-11 shrink-0 place-items-center rounded-full",
@@ -141,16 +153,11 @@ function MosqueCard({ mosque, highlight }: { mosque: Mosque; highlight?: boolean
           {mosque.kind === "mushalla" ? "Mushalla" : "Masjid"} · {formatDistance(mosque.distanceM)}
         </p>
       </div>
-      <a
-        href={directionsUrl(mosque)}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex shrink-0 items-center gap-0.5 rounded-full bg-surface-2 px-3 py-2 text-sm font-medium text-accent hover:bg-border"
-      >
-        Rute
-        <IconChevron width={15} height={15} />
-      </a>
-    </Card>
+      <span className="flex shrink-0 items-center gap-1 rounded-full bg-surface-2 px-3 py-2 text-sm font-medium text-accent">
+        <IconPin width={15} height={15} />
+        Buka
+      </span>
+    </a>
   );
 }
 

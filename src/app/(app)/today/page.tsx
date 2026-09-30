@@ -25,6 +25,7 @@ export default function TodayPage() {
   const tz = state.settings.timezone;
   const remindersOff = notifyStatus() === "default";
   const quote = quoteOfDay(view.date);
+  const monthlyHope = state.monthlyIntentions[view.date.slice(0, 7)];
 
   const heroRow = view.hero.isTomorrow
     ? undefined
@@ -160,6 +161,17 @@ export default function TodayPage() {
             <p className="mt-0.5 text-sm leading-relaxed text-text">{view.plan.reason}</p>
           </div>
         </div>
+      )}
+
+      {monthlyHope && (
+        <Link href="/history" className="block rounded-2xl border border-accent/25 bg-gradient-to-br from-accent-soft/80 to-surface p-5 transition active:scale-[0.99]">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">Harapan bulan ini</p>
+          <blockquote className="mt-2 text-[15px] font-medium leading-relaxed text-text">“{monthlyHope}”</blockquote>
+          <p className="mt-3 flex items-center gap-1 text-xs text-muted">
+            Jaga lewat satu shalat berikutnya
+            <IconChevron width={14} height={14} />
+          </p>
+        </Link>
       )}
 
       {/* ── TODAY PROGRESS ───────────────────────────────── */}

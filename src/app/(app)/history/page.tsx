@@ -46,6 +46,7 @@ function rangeDateKeys(tz: string, range: RangeKey): string[] {
 export default function HistoryPage() {
   const state = useApp();
   const [detail, setDetail] = useState<PrayerLog | null>(null);
+  const [tab, setTab] = useState<"journal" | "history">("journal");
   const [range, setRange] = useState<RangeKey>("7d");
   const [expanded, setExpanded] = useState<Set<string>>(new Set()); // collapsed by default
   const [editingIntention, setEditingIntention] = useState(false);
@@ -86,6 +87,9 @@ export default function HistoryPage() {
   const monthDone = state.logs.filter((log) => log.date.startsWith(monthKey) && log.performed_at).length;
   const monthProgress = elapsedPrayers ? Math.min(100, Math.round((monthDone / elapsedPrayers) * 100)) : 0;
   const monthLabel = new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: tz }).format(now);
+  const reflections = state.logs
+    .filter((log) => log.date.startsWith(monthKey) && (log.note || log.mood))
+    .sort((a, b) => b.date.localeCompare(a.date));
   const circleState = (d: string, p: PrayerName, log?: PrayerLog): "done" | "missed" | "upcoming" => {
     if (log?.performed_at) return "done";
     if (log?.missed) return "missed";
@@ -100,10 +104,31 @@ export default function HistoryPage() {
     <div className="space-y-5">
       <h1 className="text-xl font-semibold tracking-tight text-text">Jurnal</h1>
 
-      <Card className="p-5">
+      <div className="grid grid-cols-2 rounded-xl bg-surface-2 p-1" role="tablist" aria-label="Isi jurnal">
+        <button
+          role="tab"
+          aria-selected={tab === "journal"}
+          onClick={() => setTab("journal")}
+          className={cx("rounded-lg px-4 py-2.5 text-sm font-medium transition", tab === "journal" ? "bg-surface text-text shadow-sm" : "text-muted")}
+        >
+          Jurnal
+        </button>
+        <button
+          role="tab"
+          aria-selected={tab === "history"}
+          onClick={() => setTab("history")}
+          className={cx("rounded-lg px-4 py-2.5 text-sm font-medium transition", tab === "history" ? "bg-surface text-text shadow-sm" : "text-muted")}
+        >
+          Riwayat
+        </button>
+      </div>
+
+      {tab === "journal" ? (
+        <>
+      <Card className="overflow-hidden border-accent/30 bg-gradient-to-br from-accent-soft/80 via-surface to-surface p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-text">Niat Bulan Ini</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-accent">Harapan Bulan Ini</p>
             <p className="mt-0.5 text-xs capitalize text-subtle">{monthLabel}</p>
           </div>
           {intention && !editingIntention && (
@@ -119,7 +144,7 @@ export default function HistoryPage() {
           )}
         </div>
         {intention && !editingIntention ? (
-          <p className="mt-4 text-[15px] leading-relaxed text-text">{intention}</p>
+          <blockquote className="mt-5 text-lg font-semibold leading-relaxed text-text">“{intention}”</blockquote>
         ) : (
           <div className="mt-4 space-y-3">
             <textarea
@@ -144,7 +169,7 @@ export default function HistoryPage() {
                 }}
                 className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-accent-fg disabled:opacity-40"
               >
-                Simpan niat
+                Simpan harapan
               </button>
             </div>
           </div>
@@ -157,13 +182,48 @@ export default function HistoryPage() {
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-2">
             <div className="h-full rounded-full bg-accent transition-all duration-500" style={{ width: `${monthProgress}%` }} />
           </div>
-          <p className="mt-2 text-xs text-subtle">Setiap catatan shalat membantu melihat perjalanan niatmu.</p>
+          <p className="mt-2 text-xs text-subtle">Setiap catatan shalat membantu melihat perjalanan harapanmu.</p>
         </div>
       </Card>
 
+      <Card className="p-5">
+        <p className="text-sm font-semibold text-text">Harapan yang dijalani</p>
+        <p className="mt-1 text-xs leading-relaxed text-subtle">Harapan menjadi lebih nyata saat diikuti tindakan dan refleksi.</p>
+        <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+          <FocusStep number="1" label="Bayangkan" detail="ingat harapanmu" />
+          <FocusStep number="2" label="Jalani" detail="jaga satu shalat" />
+          <FocusStep number="3" label="Renungkan" detail="catat perasaan" />
+        </div>
+      </Card>
+
+      <section>
+        <div className="mb-3 px-1">
+          <p className="text-sm font-semibold text-text">Refleksi bulan ini</p>
+          <p className="mt-0.5 text-xs text-subtle">Cerita dan perasaan setelah shalat.</p>
+        </div>
+        {reflections.length ? (
+          <div className="space-y-2.5">
+            {reflections.map((log) => (
+              <button key={log.id} onClick={() => setDetail(log)} className="w-full rounded-2xl border border-border bg-surface p-4 text-left transition hover:bg-surface-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium text-text">{PRAYER_LABEL[log.prayer]}</span>
+                  <span className="text-xs text-subtle">{longDate(new Date(`${log.date}T12:00:00`), tz)}</span>
+                </div>
+                {log.note && <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted">{log.note}</p>}
+                {log.mood && <span className="mt-2 inline-block rounded-full bg-accent-soft px-2.5 py-1 text-xs text-accent">{PRAYER_MOOD_LABEL[log.mood]}</span>}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <Card className="p-5 text-center text-sm text-muted">Refleksi pertamamu akan muncul setelah mencatat shalat.</Card>
+        )}
+      </section>
+        </>
+      ) : (
+        <>
       <div>
-        <p className="text-sm font-semibold text-text">Catatan shalat</p>
-        <p className="mt-0.5 text-xs text-subtle">Lihat kembali waktu, suasana hati, dan ceritamu.</p>
+        <p className="text-sm font-semibold text-text">Riwayat shalat</p>
+        <p className="mt-0.5 text-xs text-subtle">Lihat waktu dan konsistensi shalatmu.</p>
       </div>
 
       {/* Range filter (§ user request: yesterday / 3d / 7d / monthly) */}
@@ -268,8 +328,20 @@ export default function HistoryPage() {
           );
         })}
       </div>
+        </>
+      )}
 
       <DetailSheet log={detail} tz={tz} onClose={() => setDetail(null)} />
+    </div>
+  );
+}
+
+function FocusStep({ number, label, detail }: { number: string; label: string; detail: string }) {
+  return (
+    <div className="rounded-xl bg-surface-2 px-2 py-3">
+      <span className="mx-auto grid h-6 w-6 place-items-center rounded-full bg-accent-soft text-xs font-semibold text-accent">{number}</span>
+      <p className="mt-2 text-xs font-medium text-text">{label}</p>
+      <p className="mt-1 text-[10px] leading-tight text-subtle">{detail}</p>
     </div>
   );
 }

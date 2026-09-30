@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import type { PerformedLocation, PrayerName } from "@/lib/types";
-import { PRAYER_LABEL } from "@/lib/types";
+import type { PerformedLocation, PrayerMood, PrayerName } from "@/lib/types";
+import { PRAYER_LABEL, PRAYER_MOOD_LABEL } from "@/lib/types";
 import { useApp, upsertLog } from "@/lib/store";
 import { Button, Sheet, cx } from "@/components/ui";
 import { IconCheck, IconClock, IconMosque, IconPerson, IconUsers } from "@/components/icons";
@@ -12,6 +12,7 @@ const LOCATIONS: { key: PerformedLocation; label: string; Icon: typeof IconMosqu
   { key: "congregation", label: "Berjamaah", Icon: IconUsers, accent: false },
   { key: "alone", label: "Sendiri", Icon: IconPerson, accent: false },
 ];
+const MOODS = Object.entries(PRAYER_MOOD_LABEL) as [PrayerMood, string][];
 
 export function CheckIn({
   open,
@@ -27,13 +28,16 @@ export function CheckIn({
   prayerStartISO: string;
 }) {
   const { prefs } = useApp();
-  const [step, setStep] = useState<"location" | "sunnah">("location");
+  const [step, setStep] = useState<"location" | "sunnah" | "reflection">("location");
   const [location, setLocation] = useState<PerformedLocation | null>(null);
   const [time, setTime] = useState<string | null>(null); // "HH:MM" if corrected
   const [before, setBefore] = useState(false);
   const [after, setAfter] = useState(false);
   const [showTime, setShowTime] = useState(false);
   const [perfAt, setPerfAt] = useState<string | null>(null); // locked performed time
+  const [missed, setMissed] = useState(false);
+  const [note, setNote] = useState("");
+  const [mood, setMood] = useState<PrayerMood | null>(null);
 
   function reset() {
     setStep("location");
@@ -43,6 +47,9 @@ export function CheckIn({
     setAfter(false);
     setShowTime(false);
     setPerfAt(null);
+    setMissed(false);
+    setNote("");
+    setMood(null);
   }
   function close() {
     reset();
@@ -79,8 +86,7 @@ export function CheckIn({
     setPerfAt(at);
     persist(loc, at, before, after, time != null);
     if (prefs.sound) playHappy();
-    if (prefs.sunnah_tracking) setStep("sunnah");
-    else close();
+    setStep(prefs.sunnah_tracking ? "sunnah" : "reflection");
   }
 
   // "I didn't get to pray this one" — record it honestly as missed (§102).
@@ -94,7 +100,8 @@ export function CheckIn({
       missed: true,
     });
     if (prefs.sound) playSad();
-    close();
+    setMissed(true);
+    setStep("reflection");
   }
 
   function toggleSunnah(kind: "before" | "after") {
@@ -105,8 +112,24 @@ export function CheckIn({
     if (location && perfAt) persist(location, perfAt, b, a, time != null);
   }
 
+  function saveReflection() {
+    upsertLog({
+      date,
+      prayer,
+      prayer_start_at: prayerStartISO,
+      note: note.trim() || undefined,
+      mood: mood ?? undefined,
+      missed,
+    });
+    close();
+  }
+
   return (
-    <Sheet open={open} onClose={close} title={step === "location" ? "Sudah shalat?" : "Sunnah rawatib"}>
+    <Sheet
+      open={open}
+      onClose={close}
+      title={step === "location" ? "Sudah shalat?" : step === "sunnah" ? "Sunnah rawatib" : "Catatan shalat"}
+    >
       {step === "location" ? (
         <div className="space-y-4">
           <p className="-mt-2 text-center text-sm text-muted">{PRAYER_LABEL[prayer]}</p>
@@ -164,16 +187,60 @@ export function CheckIn({
             }}
           />
         </div>
-      ) : (
+      ) : step === "sunnah" ? (
         <div className="space-y-4">
           <p className="-mt-2 text-center text-sm text-muted">Tandai sunnah rawatib yang kamu kerjakan</p>
           <div className="grid grid-cols-2 gap-2.5">
             <Toggle label="Qobliyah" hint="sebelum shalat" on={before} onClick={() => toggleSunnah("before")} />
             <Toggle label="Ba'diyah" hint="sesudah shalat" on={after} onClick={() => toggleSunnah("after")} />
           </div>
-          <Button className="w-full" onClick={close}>
-            Selesai
+          <Button className="w-full" onClick={() => setStep("reflection")}>
+            Lanjut
           </Button>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          <div>
+            <label htmlFor="prayer-note" className="mb-2 block text-sm font-medium text-text">
+              Apa yang terjadi?
+            </label>
+            <textarea
+              id="prayer-note"
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              maxLength={280}
+              rows={3}
+              placeholder={missed ? "Contoh: perjalanan panjang dan tertidur." : "Contoh: bisa berhenti bekerja lebih awal."}
+              className="w-full resize-none rounded-2xl border border-border bg-surface-2 px-4 py-3 text-sm text-text outline-none transition placeholder:text-subtle focus:border-accent"
+            />
+          </div>
+          <fieldset>
+            <legend className="mb-2 text-sm font-medium text-text">Bagaimana perasaanmu?</legend>
+            <div className="grid grid-cols-3 gap-2">
+              {MOODS.map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={mood === key}
+                  onClick={() => setMood(mood === key ? null : key)}
+                  className={cx(
+                    "rounded-xl border px-2 py-2.5 text-sm transition active:scale-[0.98]",
+                    mood === key
+                      ? "border-accent bg-accent-soft font-medium text-accent"
+                      : "border-border bg-surface-2 text-muted hover:border-border-strong",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+          <Button className="w-full" onClick={saveReflection}>
+            Simpan ke jurnal
+          </Button>
+          <button onClick={close} className="mx-auto block text-xs text-subtle hover:text-muted">
+            Lewati catatan
+          </button>
         </div>
       )}
     </Sheet>

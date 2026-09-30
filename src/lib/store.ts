@@ -23,6 +23,7 @@ export interface AppState {
   prefs: Preferences;
   goal: Goal | null;
   logs: PrayerLog[];
+  monthlyIntentions: Record<string, string>;
 }
 
 export const DEFAULT_PREFS: Preferences = {
@@ -43,6 +44,7 @@ const INITIAL: AppState = {
   prefs: DEFAULT_PREFS,
   goal: null,
   logs: [],
+  monthlyIntentions: {},
 };
 
 const K = {
@@ -51,6 +53,7 @@ const K = {
   prefs: "ps.prefs",
   goal: "ps.goal",
   logs: "ps.logs",
+  monthlyIntentions: "ps.monthly-intentions",
 } as const;
 
 let state: AppState = INITIAL;
@@ -68,6 +71,7 @@ function persist() {
     localStorage.setItem(K.prefs, JSON.stringify(state.prefs));
     localStorage.setItem(K.goal, JSON.stringify(state.goal));
     localStorage.setItem(K.logs, JSON.stringify(state.logs));
+    localStorage.setItem(K.monthlyIntentions, JSON.stringify(state.monthlyIntentions));
   } catch {
     /* storage full / private mode — app still works in-memory this session */
   }
@@ -91,6 +95,7 @@ function hydrate() {
     prefs: { ...DEFAULT_PREFS, ...(load<Partial<Preferences>>(K.prefs) ?? {}) },
     goal: load<Goal>(K.goal),
     logs: load<PrayerLog[]>(K.logs) ?? [],
+    monthlyIntentions: load<Record<string, string>>(K.monthlyIntentions) ?? {},
   };
   emit();
 }
@@ -151,6 +156,10 @@ export function setGoal(goal: Goal) {
   set({ goal });
 }
 
+export function setMonthlyIntention(month: string, intention: string) {
+  set({ monthlyIntentions: { ...state.monthlyIntentions, [month]: intention.trim() } });
+}
+
 export function logKey(date: string, prayer: PrayerName) {
   return `${date}:${prayer}`;
 }
@@ -188,7 +197,11 @@ export function subscribeStore(cb: () => void) {
 
 function mergeLogs(local: PrayerLog[], remote: PrayerLog[]): PrayerLog[] {
   const m = new Map(local.map((l) => [logKey(l.date, l.prayer), l]));
-  for (const r of remote) m.set(logKey(r.date, r.prayer), r); // remote wins on conflict
+  for (const r of remote) {
+    const key = logKey(r.date, r.prayer);
+    const previous = m.get(key);
+    m.set(key, { ...previous, ...r, note: previous?.note, mood: previous?.mood });
+  }
   return [...m.values()];
 }
 

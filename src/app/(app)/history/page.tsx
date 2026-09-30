@@ -1,7 +1,13 @@
 "use client";
 import { useState } from "react";
-import { useApp } from "@/lib/store";
-import { PRAYERS, PRAYER_LABEL, type PrayerLog, type PrayerName } from "@/lib/types";
+import { setMonthlyIntention, useApp } from "@/lib/store";
+import {
+  PRAYERS,
+  PRAYER_LABEL,
+  PRAYER_MOOD_LABEL,
+  type PrayerLog,
+  type PrayerName,
+} from "@/lib/types";
 import { formatTime, localDateKey, scheduleForDay } from "@/lib/prayer/times";
 import { delayMinutes } from "@/lib/engine/profile";
 import { longDate } from "@/lib/format";
@@ -42,6 +48,8 @@ export default function HistoryPage() {
   const [detail, setDetail] = useState<PrayerLog | null>(null);
   const [range, setRange] = useState<RangeKey>("7d");
   const [expanded, setExpanded] = useState<Set<string>>(new Set()); // collapsed by default
+  const [editingIntention, setEditingIntention] = useState(false);
+  const [intentionDraft, setIntentionDraft] = useState("");
   const toggleDay = (d: string) =>
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -70,6 +78,14 @@ export default function HistoryPage() {
   const now = new Date();
   const todayKey = localDateKey(tz);
   const todaySchedule = scheduleForDay(state.settings, now);
+  const monthKey = todayKey.slice(0, 7);
+  const intention = state.monthlyIntentions[monthKey] ?? "";
+  const elapsedPrayers =
+    (Number(todayKey.slice(8, 10)) - 1) * 5 +
+    PRAYERS.filter((prayer) => new Date(todaySchedule.times[prayer]).getTime() <= now.getTime()).length;
+  const monthDone = state.logs.filter((log) => log.date.startsWith(monthKey) && log.performed_at).length;
+  const monthProgress = elapsedPrayers ? Math.min(100, Math.round((monthDone / elapsedPrayers) * 100)) : 0;
+  const monthLabel = new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: tz }).format(now);
   const circleState = (d: string, p: PrayerName, log?: PrayerLog): "done" | "missed" | "upcoming" => {
     if (log?.performed_at) return "done";
     if (log?.missed) return "missed";
@@ -82,7 +98,73 @@ export default function HistoryPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-semibold tracking-tight text-text">Riwayat</h1>
+      <h1 className="text-xl font-semibold tracking-tight text-text">Jurnal</h1>
+
+      <Card className="p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-text">Niat Bulan Ini</p>
+            <p className="mt-0.5 text-xs capitalize text-subtle">{monthLabel}</p>
+          </div>
+          {intention && !editingIntention && (
+            <button
+              onClick={() => {
+                setIntentionDraft(intention);
+                setEditingIntention(true);
+              }}
+              className="rounded-full border border-border px-3 py-1.5 text-xs text-muted hover:text-text"
+            >
+              Ubah
+            </button>
+          )}
+        </div>
+        {intention && !editingIntention ? (
+          <p className="mt-4 text-[15px] leading-relaxed text-text">{intention}</p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            <textarea
+              value={intentionDraft}
+              onChange={(event) => setIntentionDraft(event.target.value)}
+              maxLength={280}
+              rows={3}
+              placeholder="Contoh: Semoga bulan ini aku lebih tenang dan menjaga Ashar tepat waktu."
+              className="w-full resize-none rounded-2xl border border-border bg-surface-2 px-4 py-3 text-sm text-text outline-none transition placeholder:text-subtle focus:border-accent"
+            />
+            <div className="flex justify-end gap-2">
+              {editingIntention && (
+                <button onClick={() => setEditingIntention(false)} className="px-3 py-2 text-sm text-muted">
+                  Batal
+                </button>
+              )}
+              <button
+                disabled={!intentionDraft.trim()}
+                onClick={() => {
+                  setMonthlyIntention(monthKey, intentionDraft);
+                  setEditingIntention(false);
+                }}
+                className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-accent-fg disabled:opacity-40"
+              >
+                Simpan niat
+              </button>
+            </div>
+          </div>
+        )}
+        <div className="mt-5 border-t border-border pt-4">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted">Shalat terjaga bulan ini</span>
+            <span className="tabular font-medium text-text">{monthDone} dari {elapsedPrayers}</span>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-2">
+            <div className="h-full rounded-full bg-accent transition-all duration-500" style={{ width: `${monthProgress}%` }} />
+          </div>
+          <p className="mt-2 text-xs text-subtle">Setiap catatan shalat membantu melihat perjalanan niatmu.</p>
+        </div>
+      </Card>
+
+      <div>
+        <p className="text-sm font-semibold text-text">Catatan shalat</p>
+        <p className="mt-0.5 text-xs text-subtle">Lihat kembali waktu, suasana hati, dan ceritamu.</p>
+      </div>
 
       {/* Range filter (§ user request: yesterday / 3d / 7d / monthly) */}
       <div className="flex gap-2 overflow-x-auto pb-1">
@@ -169,6 +251,10 @@ export default function HistoryPage() {
                               masjid
                             </span>
                           )}
+                          {log?.mood && (
+                            <span className="text-xs text-subtle">{PRAYER_MOOD_LABEL[log.mood]}</span>
+                          )}
+                          {log?.missed && <span className="text-xs font-medium text-danger">Terlewat</span>}
                         </span>
                         <span className="tabular text-sm text-subtle">
                           {log?.performed_at ? formatTime(log.performed_at, tz) : "—"}
@@ -245,6 +331,7 @@ function DetailSheet({ log, tz, onClose }: { log: PrayerLog | null; tz: string; 
             <Row label="Mulai bersiap" value={formatTime(log.preparation_started_at, tz)} />
           )}
           <Row label="Shalat" value={log.performed_at ? formatTime(log.performed_at, tz) : "—"} />
+          {log.missed && <Row label="Status" value="Terlewat" tone="warn" />}
           {d != null && (
             <Row
               label="Keterlambatan"
@@ -260,6 +347,13 @@ function DetailSheet({ log, tz, onClose }: { log: PrayerLog | null; tz: string; 
               "—"
             }
           />
+          {log.mood && <Row label="Perasaan" value={PRAYER_MOOD_LABEL[log.mood]} />}
+          {log.note && (
+            <div className="mt-2 rounded-2xl bg-surface-2 p-4">
+              <p className="text-xs text-subtle">Catatan</p>
+              <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-text">{log.note}</p>
+            </div>
+          )}
           {log.manual_time && <p className="pt-2 text-xs text-subtle">Waktu dikoreksi manual.</p>}
         </div>
       )}

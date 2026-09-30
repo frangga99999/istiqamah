@@ -28,6 +28,16 @@ export type RiskLevel = "LOW" | "MEDIUM" | "HIGH" | "VERY_HIGH";
 
 // PRD §27 — where/how the prayer was performed.
 export type PerformedLocation = "mosque" | "congregation" | "alone";
+export type PrayerMood = "calm" | "grateful" | "relieved" | "energized" | "sad" | "anxious";
+
+export const PRAYER_MOOD_LABEL: Record<PrayerMood, string> = {
+  calm: "Tenang",
+  grateful: "Bersyukur",
+  relieved: "Lega",
+  energized: "Bersemangat",
+  sad: "Sedih",
+  anxious: "Cemas",
+};
 
 // PRD §34 — starting assistance derived from onboarding.
 export type AssistanceLevel = "low" | "medium" | "high";
@@ -90,6 +100,8 @@ export interface PrayerLog {
   sunnah_after?: boolean;
   manual_time?: boolean; // user corrected the time (PRD §29)
   missed?: boolean; // user explicitly marked this prayer as missed (§102)
+  note?: string;
+  mood?: PrayerMood;
 }
 
 // PRD §76 — rolling behaviour profile per prayer, the engine's memory.

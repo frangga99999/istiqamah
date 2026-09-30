@@ -85,7 +85,14 @@ export function CheckIn({
 
   // "I didn't get to pray this one" — record it honestly as missed (§102).
   function saveMissed() {
-    upsertLog({ date, prayer, prayer_start_at: prayerStartISO, performed_at: null, missed: true });
+    upsertLog({
+      date,
+      prayer,
+      prayer_start_at: prayerStartISO,
+      performed_at: null,
+      congregational: false,
+      missed: true,
+    });
     if (prefs.sound) playSad();
     close();
   }

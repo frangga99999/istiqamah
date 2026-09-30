@@ -4,6 +4,7 @@ import assert from "node:assert";
 import type { PrayerLog, PrayerName } from "@/lib/types";
 import { buildProfile, classifyQuality, delayMinutes } from "@/lib/engine/profile";
 import { planReminder } from "@/lib/engine/adaptive";
+import { prayerState } from "@/lib/prayer/state";
 
 let n = 0;
 const ok = (cond: boolean, msg: string) => {
@@ -34,6 +35,22 @@ ok(classifyQuality(log("asr", 1, 15)) === "ON_TIME", "15m delay = ON_TIME");
 ok(classifyQuality(log("asr", 1, 40)) === "LATE_RISK", "40m delay = LATE_RISK");
 ok(classifyQuality(log("asr", 1, null)) === "MISSED", "no performed_at = MISSED");
 ok(delayMinutes(log("asr", 1, 16)) === 16, "delayMinutes computes 16");
+
+// Live urgency states: enter preparation at the configured lead time, then miss
+// only after the prayer window closes.
+const adzan = new Date("2026-01-01T15:00:00Z");
+const nextAdzan = new Date("2026-01-01T18:00:00Z");
+const liveState = (now: string) =>
+  prayerState({
+    start: adzan,
+    windowEnd: nextAdzan,
+    now: new Date(now),
+    performedAt: null,
+    leadTimeMin: 20,
+    lateRiskAfterMin: 20,
+  });
+ok(liveState("2026-01-01T14:45:00Z") === "PREPARATION", "inside lead time = PREPARATION");
+ok(liveState("2026-01-01T18:00:00Z") === "MISSED", "closed prayer window = MISSED");
 
 // Consistently very-late Ashar → VERY_HIGH risk, big avg delay.
 const lateAsr = Array.from({ length: 8 }, (_, i) => log("asr", i + 1, 40 + (i % 3) * 5));

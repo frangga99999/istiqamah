@@ -88,7 +88,12 @@ function logToRow(user_id: string, l: PrayerLog) {
   };
 }
 
-const rowToLog = (r: Record<string, unknown>): PrayerLog => r as unknown as PrayerLog;
+// ponytail: this sentinel avoids a schema migration; add a real `missed` column
+// if another client ever needs to write unfinished, non-congregational logs.
+const rowToLog = (r: Record<string, unknown>): PrayerLog => ({
+  ...(r as unknown as PrayerLog),
+  missed: r.performed_at == null && r.congregational === false,
+});
 
 function profileToRow(user_id: string, p: OnboardingProfile) {
   return {

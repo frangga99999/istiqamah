@@ -5,7 +5,7 @@ function cx(...c: (string | false | undefined)[]) {
   return c.filter(Boolean).join(" ");
 }
 
-type Variant = "primary" | "secondary" | "ghost" | "danger" | "hero";
+type Variant = "primary" | "secondary" | "ghost" | "danger" | "hero" | "urgent";
 const variants: Record<Variant, string> = {
   primary: "rounded-xl bg-accent text-accent-fg hover:bg-accent-strong active:scale-[0.99]",
   secondary: "rounded-xl bg-surface-2 text-text hover:bg-border active:scale-[0.99]",
@@ -13,6 +13,7 @@ const variants: Record<Variant, string> = {
   danger: "rounded-xl bg-danger-soft text-danger hover:brightness-95",
   // Prominent pill CTA: gradient + soft glow, for the primary action on Home.
   hero: "rounded-full bg-gradient-to-b from-accent to-accent-strong text-accent-fg shadow-lg shadow-accent/25 hover:brightness-[1.06] active:scale-[0.98]",
+  urgent: "rounded-full bg-warn text-white shadow-lg shadow-warn/20 hover:brightness-[1.06] active:scale-[0.98]",
 };
 
 export function Button({

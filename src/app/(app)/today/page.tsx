@@ -9,7 +9,7 @@ import { longDate } from "@/lib/format";
 import { quoteOfDay } from "@/lib/quotes";
 import { Button, Card, cx } from "@/components/ui";
 import { CheckIn } from "@/components/check-in";
-import { IconBell, IconCheck, IconChevron, IconMosque, IconSpark, IconUsers } from "@/components/icons";
+import { IconBell, IconCheck, IconChevron, IconClock, IconMosque, IconSpark, IconUsers } from "@/components/icons";
 import { notifyStatus, useReminders } from "@/lib/notify";
 import Link from "next/link";
 
@@ -30,6 +30,8 @@ export default function TodayPage() {
     ? undefined
     : view.rows.find((r) => r.prayer === view.hero.prayer);
   const prepStarted = Boolean(heroRow?.log?.preparation_started_at);
+  const preparing = view.hero.state === "PREPARATION";
+  const urgent = preparing || view.hero.state === "LATE_RISK";
 
   function startPreparing() {
     if (!view || !heroRow) return;
@@ -74,14 +76,14 @@ export default function TodayPage() {
         <Card
           className={cx(
             "relative overflow-hidden p-5",
-            view.hero.state === "LATE_RISK"
+            urgent
               ? "border-warn/40 bg-gradient-to-b from-warn-soft/60 to-surface"
               : "border-accent/30 bg-gradient-to-b from-accent-soft/50 to-surface",
           )}
           style={
             {
-              ["--glow"]: view.hero.state === "LATE_RISK" ? "var(--warn)" : "var(--accent)",
-              animation: "heroGlow 3.4s ease-in-out infinite",
+              ["--glow"]: urgent ? "var(--warn)" : "var(--accent)",
+              animation: `heroGlow ${preparing ? 1.8 : 3.4}s ease-in-out infinite`,
             } as CSSProperties
           }
         >
@@ -93,7 +95,7 @@ export default function TodayPage() {
 
           {view.hero.state === "LATE_RISK" ? (
             <p className="mt-2 text-sm text-warn">
-              Belum tercatat — prioritaskan shalat sebelum melanjutkan aktivitas.
+              Belum tercatat. Prioritaskan shalat sebelum melanjutkan aktivitas.
             </p>
           ) : view.hero.isNow ? (
             <p className="mt-2 text-sm text-muted">Silakan tunaikan, lalu catat.</p>
@@ -103,7 +105,7 @@ export default function TodayPage() {
               <span className="tabular font-medium text-text">{view.prepInMinutes} menit</span>
             </p>
           ) : (
-            <p className="mt-2 text-sm text-muted">Waktunya mulai bersiap.</p>
+            <p className="mt-2 font-medium text-warn">Adzan semakin dekat. Selesaikan aktivitas dan mulai bersiap.</p>
           )}
 
           <div className="mt-4">
@@ -131,7 +133,7 @@ export default function TodayPage() {
               )
             ) : (
               <Button
-                variant="hero"
+                variant={preparing ? "urgent" : "hero"}
                 className="relative w-full overflow-hidden py-4 text-base"
                 onClick={() => {
                   tap();
@@ -139,8 +141,8 @@ export default function TodayPage() {
                 }}
               >
                 <Shine />
-                <IconMosque width={19} height={19} />
-                Saya Mau Bersiap
+                {preparing ? <IconClock width={19} height={19} /> : <IconMosque width={19} height={19} />}
+                {preparing ? "Mulai Bersiap Sekarang" : "Saya Mau Bersiap"}
               </Button>
             )}
           </div>
@@ -185,7 +187,7 @@ export default function TodayPage() {
         <blockquote className="text-[13px] italic leading-relaxed text-muted">
           “{quote.text}”
         </blockquote>
-        <figcaption className="mt-1.5 text-[11px] text-subtle">— {quote.source}</figcaption>
+        <figcaption className="mt-1.5 text-[11px] text-subtle">{quote.source}</figcaption>
       </figure>
 
       {checkIn && view && (
@@ -222,7 +224,9 @@ function CountdownHero({ view, now, tz }: { view: TodayView; now: Date; tz: stri
   const big = hero.isNow ? "Masuk" : h > 0 ? `${h}:${pad2(m)}:${pad2(s)}` : `${m}:${pad2(s)}`;
 
   const late = hero.state === "LATE_RISK";
-  const color = late ? "var(--warn)" : view.target.mosque ? "var(--mosque)" : "var(--accent)";
+  const preparing = hero.state === "PREPARATION";
+  const urgent = late || preparing;
+  const color = urgent ? "var(--warn)" : view.target.mosque ? "var(--mosque)" : "var(--accent)";
   const R = 52;
   const C = 2 * Math.PI * R;
   const mx = 60 + R * Math.cos(2 * Math.PI * prepFrac);
@@ -234,7 +238,7 @@ function CountdownHero({ view, now, tz }: { view: TodayView; now: Date; tz: stri
       {/* Prominent prayer name — countdown + adzan time stay in the ring below. */}
       <div className="mb-3 text-center">
         <p className="text-xs font-medium uppercase tracking-[0.2em]" style={{ color }}>
-          {hero.isNow ? "waktunya" : hero.isTomorrow ? "besok" : "menuju"}
+          {late ? "segera tunaikan" : preparing ? "saatnya bersiap" : hero.isNow ? "waktunya" : hero.isTomorrow ? "besok" : "menuju"}
         </p>
         <h1 className="mt-1 text-[34px] font-bold leading-none tracking-tight text-text">
           {PRAYER_LABEL[hero.prayer]}
@@ -312,6 +316,7 @@ function PrayerRowItem({
   onCheckIn: () => void;
 }) {
   const done = Boolean(row.log?.performed_at);
+  const missed = row.state === "MISSED";
   const entered = row.at.getTime() <= now.getTime();
   // Tapping a past/current prayer opens check-in (also fixes a missed one, §102).
   const tappable = entered;
@@ -324,18 +329,19 @@ function PrayerRowItem({
       style={{ animation: "rowIn .45s ease-out backwards", animationDelay: `${index * 65}ms` }}
       className={cx(
         "flex w-full items-center justify-between px-4 py-4 text-left transition",
+        missed && "bg-danger-soft/55",
         current && "bg-accent-soft/40",
         tappable ? "hover:bg-surface-2 active:scale-[0.99] active:bg-surface-2" : "cursor-default",
       )}
     >
       <span className="flex items-center gap-3.5">
         <StatusGlyph row={row} />
-        <span className={cx("text-base", done ? "font-medium text-text" : "text-muted")}>
+        <span className={cx("text-base", done ? "font-medium text-text" : missed ? "font-medium text-danger" : "text-muted")}>
           {PRAYER_LABEL[row.prayer]}
         </span>
       </span>
-      <span className="tabular text-[15px] text-subtle">
-        {row.log?.performed_at ? formatTime(row.log.performed_at, tz) : formatTime(row.at, tz)}
+      <span className={cx("tabular text-[15px]", missed ? "font-medium text-danger" : "text-subtle")}>
+        {missed ? "Terlewat" : row.log?.performed_at ? formatTime(row.log.performed_at, tz) : formatTime(row.at, tz)}
       </span>
     </button>
   );
@@ -349,7 +355,11 @@ function StatusGlyph({ row }: { row: PrayerRow }) {
     return <IconCheck width={22} height={22} className="text-ok" strokeWidth={2.25} />;
   }
   if (row.state === "MISSED")
-    return <span className="grid h-[22px] w-[22px] place-items-center text-lg text-subtle">—</span>;
+    return (
+      <span className="grid h-[22px] w-[22px] place-items-center rounded-full bg-danger text-sm font-semibold text-white" aria-label="Terlewat">
+        ×
+      </span>
+    );
   if (row.state === "LATE_RISK")
     return (
       <span className="grid h-[22px] w-[22px] place-items-center" aria-hidden>
@@ -363,4 +373,3 @@ function StatusGlyph({ row }: { row: PrayerRow }) {
     </span>
   );
 }
-

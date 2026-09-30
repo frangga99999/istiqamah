@@ -43,7 +43,7 @@ export function planReminder(opts: {
 
   // Cold start (PRD §34): too little data → use onboarding assistance default.
   const cold = profile.sample_size < THRESHOLDS.minSample;
-  let leads = cold ? [...ASSIST_GRID[assistance]] : [...RISK_GRID[profile.risk_level]];
+  const leads = cold ? [...ASSIST_GRID[assistance]] : [...RISK_GRID[profile.risk_level]];
 
   // Mosque target leaves earlier (PRD §44): push the first reminder out.
   if (mosqueTarget && leads.length) leads[0] += MOSQUE_EXTRA;

@@ -10,6 +10,8 @@ import { Button, Card, Sheet, cx } from "@/components/ui";
 import { IconBack, IconCheck, IconChevron } from "@/components/icons";
 import { enableNotifications, notifyStatus } from "@/lib/notify";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase/client";
+import { VPSSettings } from "@/components/vps-settings";
+import { vpsConfigured } from "@/lib/vps";
 
 export default function SettingsPage() {
   const state = useApp();
@@ -29,7 +31,7 @@ export default function SettingsPage() {
   const p = state.prefs;
 
   function exportData() {
-    const data = { profile: state.profile, settings: state.settings, prefs: state.prefs, goal: state.goal, logs: state.logs };
+    const data = { profile: state.profile, settings: state.settings, prefs: state.prefs, goal: state.goal, logs: state.logs, monthlyIntentions: state.monthlyIntentions, journalEntries: state.journalEntries, dailyReflections: state.dailyReflections, fastingLogs: state.fastingLogs };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -40,7 +42,7 @@ export default function SettingsPage() {
   }
 
   function removeAll() {
-    if (confirm("Hapus semua data ibadah? Tindakan ini tidak dapat dibatalkan.")) {
+    if (confirm("Hapus semua catatan di perangkat ini? Ekspor dulu bila ingin menyimpannya. Cadangan VPS dapat dihapus lewat bagian Ruang pribadi.")) {
       deleteAll();
       router.replace("/onboarding");
     }
@@ -56,6 +58,7 @@ export default function SettingsPage() {
       </header>
 
       <div className="space-y-8 px-4 pb-16">
+        <VPSSettings />
         {/* Notifications (§106) */}
         <Group title="Pengingat">
           <RowButton
@@ -142,7 +145,7 @@ export default function SettingsPage() {
           />
         </Group>
 
-        <AccountSection />
+        {!vpsConfigured && <AccountSection />}
 
         {/* Privacy (§91–92) */}
         <Group title="Privasi">
@@ -151,7 +154,7 @@ export default function SettingsPage() {
             onClick={removeAll}
             className="flex w-full items-center justify-between px-4 py-3.5 text-left text-[15px] text-danger hover:bg-surface-2"
           >
-            Hapus semua data
+            Hapus data perangkat ini
           </button>
         </Group>
 

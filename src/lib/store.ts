@@ -5,6 +5,9 @@
 import { useSyncExternalStore } from "react";
 import type {
   Goal,
+  JournalEntry,
+  DailyReflection,
+  FastingLog,
   PrayerLog,
   PrayerName,
   PrayerSettings,
@@ -24,6 +27,9 @@ export interface AppState {
   goal: Goal | null;
   logs: PrayerLog[];
   monthlyIntentions: Record<string, string>;
+  journalEntries: JournalEntry[];
+  dailyReflections: Record<string, DailyReflection>;
+  fastingLogs: Record<string, FastingLog>;
 }
 
 export const DEFAULT_PREFS: Preferences = {
@@ -45,6 +51,9 @@ const INITIAL: AppState = {
   goal: null,
   logs: [],
   monthlyIntentions: {},
+  journalEntries: [],
+  dailyReflections: {},
+  fastingLogs: {},
 };
 
 const K = {
@@ -54,6 +63,9 @@ const K = {
   goal: "ps.goal",
   logs: "ps.logs",
   monthlyIntentions: "ps.monthly-intentions",
+  journalEntries: "ps.journal-entries",
+  dailyReflections: "ps.daily-reflections",
+  fastingLogs: "ps.fasting-logs",
 } as const;
 
 let state: AppState = INITIAL;
@@ -72,6 +84,9 @@ function persist() {
     localStorage.setItem(K.goal, JSON.stringify(state.goal));
     localStorage.setItem(K.logs, JSON.stringify(state.logs));
     localStorage.setItem(K.monthlyIntentions, JSON.stringify(state.monthlyIntentions));
+    localStorage.setItem(K.journalEntries, JSON.stringify(state.journalEntries));
+    localStorage.setItem(K.dailyReflections, JSON.stringify(state.dailyReflections));
+    localStorage.setItem(K.fastingLogs, JSON.stringify(state.fastingLogs));
   } catch {
     /* storage full / private mode — app still works in-memory this session */
   }
@@ -96,6 +111,9 @@ function hydrate() {
     goal: load<Goal>(K.goal),
     logs: load<PrayerLog[]>(K.logs) ?? [],
     monthlyIntentions: load<Record<string, string>>(K.monthlyIntentions) ?? {},
+    journalEntries: load<JournalEntry[]>(K.journalEntries) ?? [],
+    dailyReflections: load<Record<string, DailyReflection>>(K.dailyReflections) ?? {},
+    fastingLogs: load<Record<string, FastingLog>>(K.fastingLogs) ?? {},
   };
   emit();
 }
@@ -160,6 +178,41 @@ export function setMonthlyIntention(month: string, intention: string) {
   set({ monthlyIntentions: { ...state.monthlyIntentions, [month]: intention.trim() } });
 }
 
+// ponytail: journals remain on this browser; add account-scoped cloud sync when its schema is deployed.
+export function saveJournalEntry(entry: JournalEntry) {
+  hydrate();
+  const journalEntries = [...state.journalEntries.filter((item) => item.id !== entry.id), entry];
+  // Persist before updating the UI so a full disk cannot masquerade as a saved draft.
+  localStorage.setItem(K.journalEntries, JSON.stringify(journalEntries));
+  state = { ...state, journalEntries };
+  emit();
+}
+
+export function removeJournalEntry(id: string) {
+  const journalEntries = state.journalEntries.filter((entry) => entry.id !== id);
+  localStorage.setItem(K.journalEntries, JSON.stringify(journalEntries));
+  state = { ...state, journalEntries };
+  emit();
+}
+
+export function saveDailyReflection(entry: DailyReflection) {
+  const dailyReflections = { ...state.dailyReflections, ...load<Record<string, DailyReflection>>(K.dailyReflections), [entry.date]: entry };
+  localStorage.setItem(K.dailyReflections, JSON.stringify(dailyReflections));
+  state = { ...state, dailyReflections };
+  emit();
+}
+
+export function dailyReflectionFor(date: string) {
+  return load<Record<string, DailyReflection>>(K.dailyReflections)?.[date] ?? state.dailyReflections[date];
+}
+
+export function saveFastingLog(entry: FastingLog) {
+  const fastingLogs = { ...state.fastingLogs, [entry.date]: entry };
+  localStorage.setItem(K.fastingLogs, JSON.stringify(fastingLogs));
+  state = { ...state, fastingLogs };
+  emit();
+}
+
 export function logKey(date: string, prayer: PrayerName) {
   return `${date}:${prayer}`;
 }
@@ -186,6 +239,31 @@ export function upsertLog(input: Omit<PrayerLog, "id"> & { id?: string }): Praye
 export function deleteAll() {
   state = { ...INITIAL, hydrated: true };
   persist();
+  emit();
+}
+
+export function restoreSnapshot(value: unknown) {
+  if (!value || typeof value !== "object") throw new Error("Cadangan tidak valid.");
+  const snapshot = value as Record<string, unknown>;
+  for (const key of Object.keys(K) as (keyof typeof K)[]) {
+    if (!(key in snapshot)) throw new Error("Cadangan belum lengkap.");
+    const item = snapshot[key];
+    if (key === "logs" || key === "journalEntries") {
+      if (!Array.isArray(item)) throw new Error("Cadangan tidak valid.");
+    } else if (key === "profile" || key === "settings" || key === "goal") {
+      if (item !== null && (typeof item !== "object" || Array.isArray(item))) throw new Error("Cadangan tidak valid.");
+    } else if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error("Cadangan tidak valid.");
+  }
+  // Preserve a rollback copy when storage fills mid-restore.
+  const previous = Object.values(K).map((key) => [key, localStorage.getItem(key)] as const);
+  try {
+    for (const key of Object.keys(K) as (keyof typeof K)[]) localStorage.setItem(K[key], JSON.stringify(snapshot[key]));
+  } catch (error) {
+    for (const [key, item] of previous) { if (item !== null) localStorage.setItem(key, item); else localStorage.removeItem(key); }
+    throw error;
+  }
+  const restored = Object.fromEntries(Object.keys(K).map((key) => [key, snapshot[key]])) as unknown as Omit<AppState, "hydrated">;
+  state = { ...restored, hydrated: true };
   emit();
 }
 

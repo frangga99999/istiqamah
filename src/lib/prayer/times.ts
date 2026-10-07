@@ -81,6 +81,17 @@ export function scheduleForDay(settings: PrayerSettings, base = new Date()): Day
   return { date: localDateKey(settings.timezone, base), times: out };
 }
 
+export function dhuhaWindow(settings: PrayerSettings, base = new Date()) {
+  const params = paramsFor(settings);
+  params.adjustments.dhuhr = 0;
+  const times = new PrayerTimes(new Coordinates(settings.latitude, settings.longitude), civilDate(settings.timezone, base), params);
+  // Approximation: sunrise +20m until unadjusted Dhuhr -15m; never use an offset to extend past solar noon.
+  const start = new Date(times.sunrise.getTime() + 20 * 60_000);
+  const end = new Date(times.dhuhr.getTime() - 15 * 60_000);
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start >= end) return null;
+  return { start, end, sunrise: times.sunrise };
+}
+
 // Tomorrow's Fajr — the "next prayer" once Isha has passed.
 export function tomorrowFajr(settings: PrayerSettings, base = new Date()): Date {
   const today = civilDate(settings.timezone, base);

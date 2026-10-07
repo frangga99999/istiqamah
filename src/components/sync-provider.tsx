@@ -3,11 +3,13 @@ import { useEffect } from "react";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase/client";
 import { subscribeStore } from "@/lib/store";
 import { fullSync, pushDebounced } from "@/lib/sync";
+import { startVpsBackups, vpsConfigured } from "@/lib/vps";
 
 // Bridges the local store to Supabase when signed in. No-op without env or session,
 // so the app stays fully functional local-first (PRD §89/§90).
 export function SyncProvider() {
   useEffect(() => {
+    if (vpsConfigured) return startVpsBackups();
     if (!supabaseConfigured()) return;
     const sb = getSupabase();
     if (!sb) return;

@@ -1,0 +1,127 @@
+"use client";
+import { useState } from "react";
+import Link from "next/link";
+import { useApp, saveJournalEntry, removeJournalEntry } from "@/lib/store";
+import { PRAYERS, PRAYER_LABEL, PRAYER_MOOD_LABEL, type JournalEntry, type PrayerLog, type PrayerMood, type PrayerName } from "@/lib/types";
+import { hasJournalContent, journalTimeline } from "@/lib/journal";
+import { Button, Card, cx } from "@/components/ui";
+
+const field = "w-full min-w-0 rounded-xl border border-border bg-surface-2 px-3 py-3 text-sm text-text";
+const prompts = ["Ada momen kecil yang membuatmu merasa dekat dengan Allah hari ini?", "Apa yang ingin kamu ceritakan setelah shalat?", "Apa yang pelan-pelan ingin kamu lepaskan?", "Kebaikan kecil apa yang kamu syukuri hari ini?"];
+const dhikrOptions = ["Subhanallah", "Alhamdulillah", "Allahu akbar", "Astaghfirullah", "La ilaha illallah", "Shalawat"];
+const kinds = [{ key: "all", label: "Semua" }, { key: "story", label: "Cerita" }, { key: "prayer", label: "Shalat" }, { key: "dhikr", label: "Dzikir" }];
+
+export function SpiritualJournal({ today, onPrayer }: { today: string; onPrayer: (log: PrayerLog) => void }) {
+  const state = useApp();
+  const [editor, setEditor] = useState<JournalEntry | null>(null);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [removed, setRemoved] = useState<JournalEntry | null>(null);
+  const [query, setQuery] = useState("");
+  const [month, setMonth] = useState(today.slice(0, 7));
+  const [kind, setKind] = useState("all");
+  const [starred, setStarred] = useState(false);
+  const [prompt, setPrompt] = useState(0);
+  const drafts = state.journalEntries.filter((entry) => entry.draft);
+  const timeline = journalTimeline(state.journalEntries, state.logs, month, query, kind, starred);
+  const todayLogs = state.logs.filter((log) => log.date === (editor?.date ?? today) && log.performed_at);
+  const months = [...new Set([today.slice(0, 7), ...state.logs.map((log) => log.date.slice(0, 7)), ...state.journalEntries.map((entry) => entry.date.slice(0, 7))])].sort().reverse();
+
+  function write(entry: JournalEntry) {
+    try { saveJournalEntry(entry); setError(""); return true; }
+    catch { setError("Belum tersimpan. Penyimpanan perangkat mungkin penuh. Salin tulisanmu sebelum menutup halaman."); return false; }
+  }
+  function change(patch: Partial<JournalEntry>) {
+    if (!editor) return;
+    const next = { ...editor, ...patch, updatedAt: new Date().toISOString() };
+    setEditor(next);
+    write(next);
+  }
+  function create(entryKind: JournalEntry["kind"]) {
+    const at = new Date().toISOString();
+    const entry: JournalEntry = { id: crypto.randomUUID(), date: today, kind: entryKind, title: "", body: "", gratitude: "", nextStep: "", dhikr: dhikrOptions[0], count: 0, draft: true, starred: false, createdAt: at, updatedAt: at };
+    setEditor(entry); write(entry); setMessage("");
+  }
+  function finish() {
+    if (!editor || !hasJournalContent(editor)) return;
+    if (write({ ...editor, draft: false, updatedAt: new Date().toISOString() })) {
+      setMonth(editor.date.slice(0, 7)); setKind("all"); setQuery(""); setStarred(false); setEditor(null); setMessage("Ceritamu sudah tersimpan.");
+    }
+  }
+  function remove(entry: JournalEntry) {
+    try { removeJournalEntry(entry.id); setRemoved(entry); setEditor(null); setError(""); }
+    catch { setError("Catatan belum bisa dihapus. Coba lagi."); }
+  }
+  function exportJournal() {
+    const data = { exportedAt: new Date().toISOString(), monthlyHopes: state.monthlyIntentions, entries: state.journalEntries, prayerLogs: state.logs, dailyReflections: state.dailyReflections, fastingLogs: state.fastingLogs };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+    const anchor = document.createElement("a"); anchor.href = url; anchor.download = `jurnal-${today}.json`; anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  return <section className="space-y-5" aria-label="Jurnal spiritual">
+    {error && <p role="alert" className="rounded-xl bg-warn-soft p-3 text-sm text-warn">{error}</p>}
+    <div role="status" className="text-sm text-accent">{message}</div>
+    {removed && <div className="flex items-center justify-between rounded-xl bg-surface-2 p-3 text-sm"><span>Catatan dihapus.</span><button className="min-h-11 px-3 font-medium text-accent" onClick={() => { if (write(removed)) setRemoved(null); }}>Urungkan</button></div>}
+
+    {editor ? <Card className="overflow-hidden p-5">
+      <div className="mb-5 flex items-center justify-between gap-2">
+        <div><p className="text-xs uppercase tracking-widest text-accent">Ruang untukmu</p><h2 className="mt-1 font-serif text-2xl">{editor.kind === "dhikr" ? "Pelan-pelan, hadir." : "Bagaimana harimu?"}</h2></div>
+        <button className="min-h-11 px-2 text-sm text-muted" onClick={() => { if (write(editor)) setEditor(null); }}>Tutup</button>
+      </div>
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <label className="min-w-0 space-y-1 text-xs text-muted">Tanggal<input aria-label="Tanggal cerita" type="date" max={today} value={editor.date} onChange={(e) => { if (e.target.value && e.target.value <= today) change({ date: e.target.value }); }} className={field} /></label>
+          <label className="min-w-0 space-y-1 text-xs text-muted">Terhubung dengan<select value={editor.prayer ?? ""} onChange={(e) => change({ prayer: (e.target.value || undefined) as PrayerName | undefined })} className={field}><option value="">Momen sehari-hari</option>{PRAYERS.map((p) => <option key={p} value={p}>Shalat {PRAYER_LABEL[p]}</option>)}</select></label>
+        </div>
+        <p className="text-xs text-muted">{todayLogs.length ? `${todayLogs.length} shalat tercatat pada hari ini. Kamu bisa menuliskan cerita di baliknya.` : "Cerita kecil pun layak disimpan."}</p>
+        {editor.kind === "dhikr" && <div className="rounded-2xl border border-accent/25 bg-accent-soft/40 p-4 text-center">
+          <label className="block text-sm text-muted">Bacaan dzikir<select className={`${field} mt-2`} value={editor.dhikr} onChange={(e) => change({ dhikr: e.target.value, count: 0 })} disabled={editor.count > 0}>{dhikrOptions.map((text) => <option key={text}>{text}</option>)}</select></label>
+          <button aria-label={`Tambah hitungan ${editor.dhikr}, sekarang ${editor.count}`} onClick={() => change({ count: Math.min(99999, editor.count + 1) })} className="mx-auto my-5 flex h-36 w-36 flex-col items-center justify-center rounded-full border-4 border-accent/30 bg-surface text-accent shadow-lg shadow-accent/10 transition duration-150 active:scale-95">
+            <span className="tabular text-5xl font-light">{editor.count}</span><span className="mt-2 text-xs">ketuk untuk menghitung</span>
+          </button>
+          <button disabled={!editor.count} onClick={() => change({ count: Math.max(0, editor.count - 1) })} className="min-h-11 rounded-full border border-border px-4 text-sm text-muted disabled:opacity-40">Koreksi −1</button>
+          <p className="mt-2 text-xs text-muted">Tanpa target wajib. Berhenti saat kamu siap.</p>
+        </div>}
+        <label className="block text-sm text-muted">Judul kecil, kalau mau<input className={`${field} mt-2`} value={editor.title} maxLength={100} placeholder="Sore yang terasa lebih tenang" onChange={(e) => change({ title: e.target.value })} /></label>
+        <div className="border-l-2 border-accent/50 pl-3"><p className="text-sm italic leading-relaxed text-muted">{prompts[prompt]}</p><button onClick={() => setPrompt((prompt + 1) % prompts.length)} className="min-h-11 text-xs text-accent">Pertanyaan lain</button></div>
+        <label className="block text-sm text-muted">Ceritakan dengan bahasamu<textarea className={`${field} journal-paper mt-2 min-h-48 resize-y leading-8`} value={editor.body} maxLength={12000} placeholder="Hari ini aku..." onChange={(e) => change({ body: e.target.value })} /></label>
+        <fieldset><legend className="mb-2 text-sm text-muted">Saat ini aku merasa...</legend><div className="flex flex-wrap gap-2">{Object.entries(PRAYER_MOOD_LABEL).map(([key, label]) => <button key={key} aria-pressed={editor.mood === key} onClick={() => change({ mood: editor.mood === key ? undefined : key as PrayerMood })} className={cx("min-h-11 rounded-full border px-3 text-sm", editor.mood === key ? "border-accent bg-accent-soft text-accent" : "border-border text-muted")}>{label}</button>)}</div></fieldset>
+        <details className="rounded-xl bg-surface-2 p-3" open={Boolean(editor.gratitude || editor.nextStep) || undefined}><summary className="cursor-pointer py-1 text-sm text-muted">Satu hal yang kusyukuri, satu langkah untuk besok</summary><label className="mt-3 block text-sm text-muted">Aku bersyukur karena...<textarea className={`${field} mt-2`} rows={2} maxLength={1000} value={editor.gratitude} onChange={(e) => change({ gratitude: e.target.value })} /></label><label className="mt-3 block text-sm text-muted">Langkah kecilku berikutnya<textarea className={`${field} mt-2`} rows={2} maxLength={1000} value={editor.nextStep} onChange={(e) => change({ nextStep: e.target.value })} /></label></details>
+        <p className="text-xs text-muted" role="status">{error ? "Perubahan belum tersimpan" : editor.draft ? "Draf tersimpan di perangkat ini" : "Perubahan tersimpan di perangkat ini"}</p>
+        <Button disabled={!hasJournalContent(editor)} onClick={finish} className="w-full">Simpan cerita ini</Button>
+        <button onClick={() => { if (window.confirm("Hapus catatan ini? Kamu dapat mengurungkannya setelah dihapus.")) remove(editor); }} className="min-h-11 w-full text-sm text-muted">Hapus catatan</button>
+      </div>
+    </Card> : <>
+      <Card className="relative overflow-hidden p-6">
+        <p className="text-xs uppercase tracking-widest text-accent">Sejenak untuk diri sendiri</p>
+        <h2 className="mt-3 font-serif text-3xl leading-tight">Ada cerita<br />di balik setiap hari.</h2>
+        <p className="mt-3 text-sm leading-relaxed text-muted">Tentang shalat yang terasa hangat, pikiran yang ramai, atau syukur yang sederhana. Semuanya boleh ada di sini.</p>
+        <div className="mt-5 grid grid-cols-2 gap-2"><Button onClick={() => create("story")}>Tulis cerita</Button><Button variant="secondary" onClick={() => create("dhikr")}>Temani dzikir</Button></div>
+      </Card>
+      {drafts.length > 0 && <div className="space-y-2"><h3 className="text-sm font-medium">Belum selesai bercerita</h3>{drafts.map((draft) => <button key={draft.id} className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-dashed border-accent/40 p-3 text-left text-sm" onClick={() => setEditor(draft)}><span className="min-w-0 truncate">{draft.title || (draft.kind === "dhikr" ? `${draft.dhikr} · ${draft.count} kali` : draft.body || "Draf cerita")}</span><span className="shrink-0 text-accent">Lanjutkan</span></button>)}</div>}
+    </>}
+
+    <div className="space-y-3">
+      <div className="flex items-center justify-between"><h2 className="font-serif text-xl">Jejak hari-harimu</h2><button onClick={exportJournal} className="min-h-11 px-2 text-xs text-accent">Ekspor jurnal</button></div>
+      <div className="grid grid-cols-[1fr_auto] gap-2"><input aria-label="Cari cerita" type="search" placeholder="Cari cerita, perasaan..." className={field} value={query} onChange={(e) => setQuery(e.target.value)} /><select aria-label="Bulan jurnal" className={`${field} max-w-36`} value={month} onChange={(e) => setMonth(e.target.value)}><option value="">Semua bulan</option>{months.map((m) => <option key={m} value={m}>{new Intl.DateTimeFormat("id-ID", { month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${m}-01T12:00:00Z`))}</option>)}</select></div>
+      <div className="flex flex-wrap gap-1.5">{kinds.map((item) => <button key={item.key} aria-pressed={kind === item.key} onClick={() => setKind(item.key)} className={cx("min-h-11 rounded-full px-3 text-xs", kind === item.key ? "bg-accent text-accent-fg" : "bg-surface-2 text-muted")}>{item.label}</button>)}<button aria-pressed={starred} onClick={() => setStarred(!starred)} className={cx("min-h-11 rounded-full px-3 text-xs", starred ? "bg-accent text-accent-fg" : "bg-surface-2 text-muted")}>Disimpan</button></div>
+    </div>
+    <div className="space-y-4">
+      {!timeline.length && <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm leading-relaxed text-muted">{query || starred ? "Belum ada catatan yang cocok. Coba kata lain atau ubah filter." : "Halaman ini masih kosong. Mulai dari satu kalimat hari ini."}</p>}
+      {timeline.map((item, i) => <article key={item.id}>
+        {(i === 0 || timeline[i - 1].date !== item.date) && <h3 className="mb-3 text-xs font-medium text-muted">{new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${item.date}T12:00:00Z`))}</h3>}
+        <Card className="p-4">
+          <div className="flex items-start justify-between gap-2"><div><p className="text-[11px] uppercase tracking-wider text-accent">{item.kind === "prayer" ? "Seusai shalat" : item.kind === "dhikr" ? "Momen dzikir" : "Cerita pribadi"}{item.entry?.prayer ? ` · ${PRAYER_LABEL[item.entry.prayer]}` : ""}</p><h4 className="mt-1 font-serif text-xl">{item.title}</h4></div>{item.entry && <button aria-label={item.entry.starred ? "Lepas penanda cerita" : "Tandai cerita berkesan"} aria-pressed={item.entry.starred} onClick={() => write({ ...item.entry!, starred: !item.entry!.starred })} className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-xl text-accent">{item.entry.starred ? "★" : "☆"}</button>}</div>
+          {item.kind === "dhikr" && <p className="mt-2 text-sm text-accent">{item.entry?.dhikr} · {item.entry?.count} kali</p>}
+          {item.log && <p className="mt-2 text-xs text-muted">{item.log.missed ? "Terlewat, masih ada kesempatan untuk melanjutkan." : "Shalat sudah tercatat."}</p>}
+          {item.body && <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-muted">{item.body}</p>}
+          {item.entry?.gratitude && <p className="mt-3 border-l-2 border-accent/40 pl-3 text-sm leading-relaxed text-muted"><span className="block text-xs text-accent">Yang kusyukuri</span>{item.entry.gratitude}</p>}
+          {item.entry?.nextStep && <p className="mt-3 text-sm text-muted"><span className="block text-xs text-accent">Langkah berikutnya</span>{item.entry.nextStep}</p>}
+          <div className="mt-3 flex items-center justify-between gap-2"><span className="text-xs text-accent">{item.mood ? PRAYER_MOOD_LABEL[item.mood] : ""}</span><button onClick={() => { if (item.log) onPrayer(item.log); else if (item.entry) { setEditor(item.entry); window.scrollTo({ top: 0, behavior: "smooth" }); } }} className="min-h-11 px-2 text-xs text-muted">{item.log ? "Detail shalat" : "Buka / edit"}</button></div>
+        </Card>
+      </article>)}
+    </div>
+    <p className="text-xs leading-relaxed text-muted">Catatan dan draf tersimpan di perangkat ini. Jika VPS terhubung, salinannya dicadangkan otomatis. <Link href="/settings" className="underline">Pengaturan data & ekspor</Link></p>
+  </section>;
+}

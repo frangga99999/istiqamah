@@ -3,6 +3,7 @@ import { AppGate } from "@/components/app-gate";
 import { BottomNav } from "@/components/bottom-nav";
 import { IconGear } from "@/components/icons";
 import { asset } from "@/lib/base-path";
+import { DailyReflectionModal } from "@/components/daily-reflection";
 
 export default function AppLayout({ children }: LayoutProps<"/">) {
   return (
@@ -24,6 +25,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         </header>
         <main className="flex-1 px-4 pb-24">{children}</main>
         <BottomNav />
+        <DailyReflectionModal />
       </div>
     </AppGate>
   );

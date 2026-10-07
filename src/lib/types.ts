@@ -104,6 +104,43 @@ export interface PrayerLog {
   mood?: PrayerMood;
 }
 
+export interface JournalEntry {
+  id: string;
+  date: string;
+  kind: "story" | "dhikr";
+  title: string;
+  body: string;
+  gratitude: string;
+  nextStep: string;
+  mood?: PrayerMood;
+  prayer?: PrayerName;
+  dhikr: string;
+  count: number;
+  draft: boolean;
+  starred: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DailyReflection {
+  date: string;
+  shownAt: string;
+  status: "shown" | "skipped" | "saved";
+  questions: [string, string];
+  questionSource: "standard" | "ai";
+  mood?: PrayerMood;
+  feeling: string;
+  goal: string;
+  done: boolean;
+  aiReflection?: string;
+}
+
+export interface FastingLog {
+  date: string;
+  status: "planned" | "fasting" | "completed" | "skipped";
+  note: string;
+}
+
 // PRD §76 — rolling behaviour profile per prayer, the engine's memory.
 export interface BehaviorProfile {
   prayer: PrayerName;

@@ -14,6 +14,7 @@ import { longDate } from "@/lib/format";
 import { Card, Sheet, cx } from "@/components/ui";
 import { LogGlyph } from "@/components/prayer-status";
 import { IconChevron } from "@/components/icons";
+import { SpiritualJournal } from "@/components/spiritual-journal";
 
 const LOC_LABEL = { mosque: "Masjid", congregation: "Berjamaah", alone: "Sendiri" } as const;
 
@@ -87,9 +88,6 @@ export default function HistoryPage() {
   const monthDone = state.logs.filter((log) => log.date.startsWith(monthKey) && log.performed_at).length;
   const monthProgress = elapsedPrayers ? Math.min(100, Math.round((monthDone / elapsedPrayers) * 100)) : 0;
   const monthLabel = new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: tz }).format(now);
-  const reflections = state.logs
-    .filter((log) => log.date.startsWith(monthKey) && (log.note || log.mood))
-    .sort((a, b) => b.date.localeCompare(a.date));
   const circleState = (d: string, p: PrayerName, log?: PrayerLog): "done" | "missed" | "upcoming" => {
     if (log?.performed_at) return "done";
     if (log?.missed) return "missed";
@@ -148,6 +146,7 @@ export default function HistoryPage() {
         ) : (
           <div className="mt-4 space-y-3">
             <textarea
+              aria-label="Harapan bulan ini"
               value={intentionDraft}
               onChange={(event) => setIntentionDraft(event.target.value)}
               maxLength={280}
@@ -186,38 +185,7 @@ export default function HistoryPage() {
         </div>
       </Card>
 
-      <Card className="p-5">
-        <p className="text-sm font-semibold text-text">Harapan yang dijalani</p>
-        <p className="mt-1 text-xs leading-relaxed text-subtle">Harapan menjadi lebih nyata saat diikuti tindakan dan refleksi.</p>
-        <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-          <FocusStep number="1" label="Bayangkan" detail="ingat harapanmu" />
-          <FocusStep number="2" label="Jalani" detail="jaga satu shalat" />
-          <FocusStep number="3" label="Renungkan" detail="catat perasaan" />
-        </div>
-      </Card>
-
-      <section>
-        <div className="mb-3 px-1">
-          <p className="text-sm font-semibold text-text">Refleksi bulan ini</p>
-          <p className="mt-0.5 text-xs text-subtle">Cerita dan perasaan setelah shalat.</p>
-        </div>
-        {reflections.length ? (
-          <div className="space-y-2.5">
-            {reflections.map((log) => (
-              <button key={log.id} onClick={() => setDetail(log)} className="w-full rounded-2xl border border-border bg-surface p-4 text-left transition hover:bg-surface-2">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-medium text-text">{PRAYER_LABEL[log.prayer]}</span>
-                  <span className="text-xs text-subtle">{longDate(new Date(`${log.date}T12:00:00`), tz)}</span>
-                </div>
-                {log.note && <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted">{log.note}</p>}
-                {log.mood && <span className="mt-2 inline-block rounded-full bg-accent-soft px-2.5 py-1 text-xs text-accent">{PRAYER_MOOD_LABEL[log.mood]}</span>}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <Card className="p-5 text-center text-sm text-muted">Refleksi pertamamu akan muncul setelah mencatat shalat.</Card>
-        )}
-      </section>
+      <SpiritualJournal today={todayKey} onPrayer={setDetail} />
         </>
       ) : (
         <>
@@ -332,16 +300,6 @@ export default function HistoryPage() {
       )}
 
       <DetailSheet log={detail} tz={tz} onClose={() => setDetail(null)} />
-    </div>
-  );
-}
-
-function FocusStep({ number, label, detail }: { number: string; label: string; detail: string }) {
-  return (
-    <div className="rounded-xl bg-surface-2 px-2 py-3">
-      <span className="mx-auto grid h-6 w-6 place-items-center rounded-full bg-accent-soft text-xs font-semibold text-accent">{number}</span>
-      <p className="mt-2 text-xs font-medium text-text">{label}</p>
-      <p className="mt-1 text-[10px] leading-tight text-subtle">{detail}</p>
     </div>
   );
 }

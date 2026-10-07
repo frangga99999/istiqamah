@@ -9,6 +9,7 @@ import { longDate } from "@/lib/format";
 import { quoteOfDay } from "@/lib/quotes";
 import { Button, Card, cx } from "@/components/ui";
 import { CheckIn } from "@/components/check-in";
+import { DailySchedule } from "@/components/daily-schedule";
 import { IconBell, IconCheck, IconChevron, IconClock, IconMosque, IconSpark, IconUsers } from "@/components/icons";
 import { notifyStatus, useReminders } from "@/lib/notify";
 import Link from "next/link";
@@ -149,6 +150,8 @@ export default function TodayPage() {
           </div>
         </Card>
       )}
+
+      <DailySchedule settings={state.settings} now={now} date={view.date} />
 
       {/* ── INSIGHT (invisible assistant, §65) ───────────── */}
       {!view.hero.isTomorrow && (

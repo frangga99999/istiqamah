@@ -5,6 +5,8 @@ import { computeJourney, PRAYER_LABEL, type WeekMetrics } from "@/lib/journey";
 import type { BehaviorProfile } from "@/lib/types";
 import { Button, Card, cx } from "@/components/ui";
 import { IconClock, IconMosque, IconSpark, IconTrend } from "@/components/icons";
+import { DailyReflectionDashboard } from "@/components/daily-reflection";
+import { FastingTracker } from "@/components/fasting-tracker";
 
 const RISK_BAR: Record<string, string> = {
   LOW: "bg-ok",
@@ -22,6 +24,8 @@ export default function JourneyPage() {
   return (
     <div className="space-y-5">
       <h1 className="text-xl font-semibold tracking-tight text-text">Perjalanan</h1>
+      <DailyReflectionDashboard />
+      <FastingTracker />
 
       {/* Current focus (§51) */}
       {j.focus && (

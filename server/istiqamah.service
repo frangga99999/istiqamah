@@ -1,0 +1,17 @@
+[Unit]
+Description=Istiqamah SQLite backups and VPS Combo AI
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/istiqamah
+ExecStart=/usr/bin/python3 %h/istiqamah/server/app.py
+Environment=PORT=8792
+Restart=always
+RestartSec=3
+MemoryMax=128M
+TasksMax=16
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

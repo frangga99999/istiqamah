@@ -120,10 +120,15 @@ body {
 }
 
 /* Accessible focus ring (PRD §108) */
-:where(button, a, input, select, [tabindex]):focus-visible {
+:where(button, a, input, textarea, select, summary, [tabindex]):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: 6px;
+}
+
+.journal-paper {
+  background-image: repeating-linear-gradient(transparent 0, transparent 31px, var(--border) 31px, var(--border) 32px);
+  background-position: 0 12px;
 }
 
 /* CTA feedback: prep confirmation pops, then "Catat Shalat" eases in (PRD §7.2). */

@@ -109,25 +109,31 @@ export function DailyReflectionDashboard() {
   const safe = canReflect(state.settings, state.logs, now);
   const months = [...new Set(all.map((entry) => entry.date.slice(0, 7)))];
   const current = state.dailyReflections[today];
-  const done = entries.filter((entry) => entry.done).length;
+  const past = entries.filter((entry) => entry.date !== today);
   const dateLabel = (date: string) => new Intl.DateTimeFormat("id-ID", { weekday: "short", day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
-  return <Card className="p-5">
-    <p className="text-xs uppercase tracking-widest text-accent">Ruang refleksi</p><h2 className="mt-2 font-serif text-2xl">Perasaan & arah harimu</h2>
-    <p className="mt-2 text-sm text-muted">{entries.length ? `${entries.length} hari bercerita · ${done} langkah kecil kamu tandai selesai.` : "Perasaanmu layak didengar. Mulai dari satu langkah kecil hari ini."}</p>
-    <Button className="mt-4 w-full" variant="secondary" disabled={!safe} onClick={() => window.dispatchEvent(new Event("open-daily-reflection"))}>{current?.status === "saved" ? "Lihat / ubah hari ini" : "Isi refleksi hari ini"}</Button>
-    {!safe && <p className="mt-2 text-xs text-muted">Jeda untuk shalat. Refleksi tersedia 60 menit setelah masuk waktu atau check-in terakhir, hingga 30 menit sebelum shalat berikutnya.</p>}
-    {error && <p role="alert" className="mt-2 text-sm text-warn">{error}</p>}
-    {all.length > 0 && <label className="mt-4 block text-xs text-muted">Bulan refleksi<select value={month} onChange={(e) => setMonth(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-surface-2 p-3 text-sm"><option value="">Semua bulan</option>{months.map((m) => <option key={m} value={m}>{new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${m}-01T12:00:00Z`))}</option>)}</select></label>}
-    <div className="mt-4 space-y-3">{entries.map((entry) => <details key={entry.date} className="rounded-xl border border-border p-3" open={entry.date === today || undefined}>
-      <summary className="cursor-pointer text-sm font-medium">{dateLabel(entry.date)} · {entry.mood ? PRAYER_MOOD_LABEL[entry.mood] : "Cerita hari ini"}{entry.done ? " · Langkah selesai" : ""}</summary>
-      <p className="mt-3 whitespace-pre-wrap break-words text-sm text-muted">{entry.feeling}</p><p className="mt-3 text-xs text-accent">Yang ingin kujaga</p><p className="mt-1 whitespace-pre-wrap break-words text-sm">{entry.goal}</p>
+  function content(entry: DailyReflection) {
+    return <div className="space-y-3">
+      {entry.mood && <p className="text-xs text-accent">{PRAYER_MOOD_LABEL[entry.mood]}</p>}
+      {entry.feeling && <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-muted">{entry.feeling}</p>}
+      <div><p className="text-xs text-muted">Langkah hari ini</p><p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed">{entry.goal}</p></div>
       <label className="mt-3 flex min-h-11 items-center gap-2 text-sm text-muted"><input type="checkbox" checked={entry.done} onChange={(e) => { try { saveDailyReflection({ ...entry, done: e.target.checked }); setError(""); } catch { setError("Perubahan belum tersimpan."); } }} />Langkah kecil ini sudah kulakukan</label>
-      {entry.aiReflection && <p className="my-3 rounded-xl bg-accent-soft p-3 text-sm leading-relaxed">Refleksi AI: {entry.aiReflection}</p>}
+      <details><summary className="min-h-11 cursor-pointer py-3 text-xs text-accent">{entry.aiReflection ? "Lihat refleksi AI" : "Renungkan dengan AI"}</summary>
+      {entry.aiReflection && <p className="mb-3 text-sm leading-relaxed text-muted">{entry.aiReflection}</p>}
       <AIAdvice key={`${entry.date}:${entry.feeling}:${entry.goal}`} mode="reflection" context={{ mood: entry.mood ?? "", feeling: entry.feeling, goal: entry.goal }} onResult={(result) => {
         const latest = getState().dailyReflections[entry.date];
         if (latest && latest.feeling === entry.feeling && latest.goal === entry.goal) saveDailyReflection({ ...latest, aiReflection: result.reflection });
-      }} />
-    </details>)}</div>
-    <p className="mt-3 text-xs text-muted">Jawaban tersimpan di perangkat ini dan ikut dalam ekspor data.</p>
+      }} /></details>
+    </div>;
+  }
+  return <Card className="p-5">
+    <div className="flex items-center justify-between gap-3"><div><h2 className="text-base font-semibold">Refleksi harian</h2><p className="mt-1 text-xs text-muted">Dua pertanyaan untuk mengenali harimu.</p></div><Button className="shrink-0 px-3" variant="secondary" disabled={!safe} onClick={() => window.dispatchEvent(new Event("open-daily-reflection"))}>{current?.status === "saved" ? "Edit" : current ? "Lanjutkan" : "Isi"}</Button></div>
+    {!safe && <p className="mt-3 text-xs leading-relaxed text-muted">Jeda untuk shalat. Bisa diisi satu jam setelah masuk waktu atau check-in, hingga 30 menit sebelum shalat berikutnya.</p>}
+    {error && <p role="alert" className="mt-2 text-sm text-warn">{error}</p>}
+    <div className="mt-4 border-t border-border pt-4">{current?.status === "saved" ? content(current) : <p className="text-sm text-muted">Belum ada refleksi hari ini. Mulai dari perasaanmu dan satu langkah kecil.</p>}</div>
+    {all.some((entry) => entry.date !== today) && <details className="mt-3 border-t border-border pt-2"><summary className="min-h-11 cursor-pointer py-3 text-sm text-muted">Catatan sebelumnya</summary>
+      <select aria-label="Bulan refleksi" value={month} onChange={(e) => setMonth(e.target.value)} className="mb-3 w-full rounded-xl border border-border bg-surface-2 p-3 text-sm"><option value="">Semua bulan</option>{months.map((m) => <option key={m} value={m}>{new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${m}-01T12:00:00Z`))}</option>)}</select>
+      <div className="divide-y divide-border">{past.map((entry) => <details key={entry.date} className="py-2"><summary className="min-h-11 cursor-pointer py-3 text-sm">{dateLabel(entry.date)}{entry.done ? " · Langkah selesai" : ""}</summary>{content(entry)}</details>)}</div>
+      {!past.length && <p className="text-xs text-muted">Belum ada catatan pada bulan ini.</p>}
+    </details>}
   </Card>;
 }

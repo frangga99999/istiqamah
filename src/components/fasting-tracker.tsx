@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { getState, saveFastingLog, useApp } from "@/lib/store";
-import { fastingDates } from "@/lib/wellbeing";
+import { isMondayThursday } from "@/lib/wellbeing";
 import { localDateKey, formatTime, scheduleForDay } from "@/lib/prayer/times";
 import type { FastingLog } from "@/lib/types";
 import { Card, cx } from "@/components/ui";
@@ -14,6 +14,7 @@ export function FastingTracker() {
   const state = useApp();
   const now = useNow();
   const [selected, setSelected] = useState("");
+  const [calendarMonth, setCalendarMonth] = useState("");
   const [error, setError] = useState("");
   const [sleep, setSleep] = useState("7");
   const [activity, setActivity] = useState("ringan");
@@ -21,32 +22,55 @@ export function FastingTracker() {
   const [food, setFood] = useState("");
   if (!state.settings) return null;
   const today = localDateKey(state.settings.timezone, now);
-  const dates = fastingDates(today);
-  const date = dates.includes(selected) ? selected : dates.find((day) => day >= today)!;
+  const month = calendarMonth || today.slice(0, 7);
+  const first = new Date(`${month}-01T12:00:00Z`);
+  const days = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
+  const dates = Array.from({ length: days }, (_, i) => `${month}-${String(i + 1).padStart(2, "0")}`);
+  const eligible = dates.filter(isMondayThursday);
+  const date = eligible.includes(selected) ? selected : eligible.find((day) => day >= today) ?? eligible[0];
+  const padding = (first.getUTCDay() + 6) % 7;
+  const monthLabel = new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" }).format(first);
   const log = state.fastingLogs[date];
   const todaySchedule = scheduleForDay(state.settings, now);
   const beforeFajr = now < new Date(todaySchedule.times.fajr);
   const afterMaghrib = now >= new Date(todaySchedule.times.maghrib);
   const history = Object.values(state.fastingLogs).sort((a, b) => b.date.localeCompare(a.date));
-  const completed = history.filter((entry) => entry.date.startsWith(today.slice(0, 7)) && entry.status === "completed").length;
+  const completed = history.filter((entry) => entry.date.startsWith(month) && entry.status === "completed").length;
   const label = (day: string) => new Intl.DateTimeFormat("id-ID", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${day}T12:00:00Z`));
   function save(patch: Partial<FastingLog>) {
     const latest = getState().fastingLogs[date];
     try { saveFastingLog({ date, status: latest?.status ?? "planned", note: latest?.note ?? "", ...patch }); setError(""); }
     catch { setError("Catatan puasa belum tersimpan. Coba lagi."); }
   }
+  function moveMonth(direction: number) {
+    const next = new Date(first);
+    next.setUTCMonth(next.getUTCMonth() + direction);
+    setCalendarMonth(next.toISOString().slice(0, 7));
+    setSelected("");
+  }
   return <Card className="p-5">
-    <div className="flex items-start justify-between gap-3"><div><p className="text-xs uppercase tracking-widest text-accent">Senin & Kamis</p><h2 className="mt-2 font-serif text-2xl">Puasa, sesuai kemampuanmu.</h2></div><span className="shrink-0 rounded-full bg-accent-soft px-3 py-2 text-xs text-accent">{completed} bulan ini</span></div>
-    <p className="mt-2 text-sm text-muted">Rencanakan, catat, lalu dengarkan tubuhmu.</p>
-    <div className="mt-4 flex gap-2 overflow-x-auto pb-2" aria-label="Tanggal puasa">{dates.map((day) => <button key={day} aria-pressed={day === date} onClick={() => setSelected(day)} className={cx("min-h-14 shrink-0 rounded-xl border px-3 py-2 text-xs", day === date ? "border-accent bg-accent-soft text-accent" : "border-border text-muted")}><span className="block">{label(day)}</span><span className="mt-1 block">{state.fastingLogs[day] ? statusLabels[state.fastingLogs[day].status] : day === today ? "Hari ini" : "Belum dicatat"}</span></button>)}</div>
-    <p className="mt-3 text-sm font-medium">{label(date)}{log ? ` · ${statusLabels[log.status]}` : ""}</p>
+    <div className="flex items-center justify-between gap-3"><h2 className="text-base font-semibold">Puasa Senin–Kamis</h2><span className="text-xs text-muted">{completed} selesai</span></div>
+    <div className="mt-3 flex items-center justify-between"><button aria-label="Bulan sebelumnya" onClick={() => moveMonth(-1)} className="h-11 w-11 rounded-lg text-lg hover:bg-surface-2">‹</button><p className="text-sm font-medium" aria-live="polite">{monthLabel}</p><button aria-label="Bulan berikutnya" onClick={() => moveMonth(1)} className="h-11 w-11 rounded-lg text-lg hover:bg-surface-2">›</button></div>
+    <div className="grid grid-cols-7 gap-0.5 text-center" aria-label={`Kalender puasa ${monthLabel}`}>
+      {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((day) => <span key={day} className="py-2 text-[11px] text-muted">{day}</span>)}
+      {Array.from({ length: padding }, (_, i) => <span key={`empty-${i}`} aria-hidden="true" />)}
+      {dates.map((day) => {
+        const available = isMondayThursday(day);
+        const status = state.fastingLogs[day]?.status;
+        const symbol = status === "completed" ? "✓" : status === "fasting" ? "◐" : status === "planned" ? "○" : status === "skipped" ? "−" : "";
+        return <button key={day} disabled={!available} aria-label={`${label(day)}${day === today ? ", hari ini" : ""}, ${available ? status ? statusLabels[status] : "belum dicatat" : "bukan jadwal Senin–Kamis"}`} aria-pressed={day === date} aria-current={day === today ? "date" : undefined} onClick={() => setSelected(day)} className={cx("flex min-h-12 flex-col items-center justify-center rounded-lg text-sm transition disabled:text-subtle/45", day === date ? "bg-accent text-accent-fg" : available ? "bg-surface-2 text-text hover:bg-accent-soft" : "", day === today && day !== date && "ring-1 ring-inset ring-accent")}><span>{Number(day.slice(-2))}</span><span aria-hidden="true" className="h-3 text-[10px] leading-3">{symbol}</span></button>;
+      })}
+    </div>
+    <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted"><span>Pilih tanggal Senin atau Kamis</span><button className="min-h-11 shrink-0 px-1 text-accent" onClick={() => { setCalendarMonth(today.slice(0, 7)); setSelected(isMondayThursday(today) ? today : ""); }}>Bulan ini</button></div>
+    <p className="mb-4 text-[10px] leading-relaxed text-muted">○ rencana · ◐ sedang puasa · ✓ selesai · − tidak puasa</p>
+    <p className="border-t border-border pt-4 text-sm font-medium">{label(date)}{log ? ` · ${statusLabels[log.status]}` : " · Belum dicatat"}</p>
     {date === today && <div className="mt-3 flex justify-between rounded-xl bg-surface-2 p-3 text-sm"><span>Subuh <b className="tabular">{formatTime(todaySchedule.times.fajr, state.settings.timezone)}</b></span><span>Maghrib <b className="tabular">{formatTime(todaySchedule.times.maghrib, state.settings.timezone)}</b></span></div>}
     <div className="mt-3 grid grid-cols-2 gap-2">{(Object.entries(statusLabels) as [FastingLog["status"], string][]).map(([status, text]) => {
       const disabled = status === "fasting" ? date !== today || beforeFajr || afterMaghrib : status === "completed" ? date > today || (date === today && !afterMaghrib) : status === "planned" && date < today;
       return <button key={status} disabled={disabled} aria-pressed={log?.status === status} onClick={() => save({ status })} className={cx("min-h-11 rounded-xl border p-2 text-sm disabled:opacity-35", log?.status === status ? "border-accent bg-accent-soft text-accent" : "border-border text-muted")}>{text}</button>;
     })}</div>
     {date === today && !afterMaghrib && <p className="mt-2 text-xs text-muted">Tanda selesai tersedia setelah Maghrib.</p>}
-    <label className="mt-4 block text-sm text-muted">Catatan singkat<textarea key={date} defaultValue={log?.note ?? ""} rows={2} maxLength={500} onBlur={(e) => save({ note: e.target.value })} placeholder="Bagaimana rasanya hari ini?" className="mt-2 w-full rounded-xl border border-border bg-surface-2 p-3 text-sm" /></label>
+    <details key={date} className="mt-3"><summary className="cursor-pointer py-2 text-sm text-muted">Catatan singkat {log?.note ? "· tersimpan" : "(opsional)"}</summary><textarea aria-label="Catatan puasa" defaultValue={log?.note ?? ""} rows={2} maxLength={500} onBlur={(e) => save({ note: e.target.value })} placeholder="Bagaimana rasanya hari ini?" className="mt-2 w-full rounded-xl border border-border bg-surface-2 p-3 text-sm" /></details>
     {error && <p role="alert" className="mt-2 text-sm text-warn">{error}</p>}
     <details className="mt-4 border-t border-border pt-3"><summary className="cursor-pointer py-2 text-sm font-medium">Nutrisi, istirahat & pendamping AI</summary>
       <p className="mt-2 text-xs leading-relaxed text-muted">Panduan umum untuk dewasa. Jika sedang sakit, memiliki kondisi medis, hamil/menyusui, atau memakai obat rutin, konsultasikan rencana puasa dengan tenaga kesehatan.</p>

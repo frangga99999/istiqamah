@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { IconCalendar, IconClock, IconMosque, IconTrend } from "@/components/icons";
+import { IconCalendar, IconChat, IconClock, IconMosque, IconTrend } from "@/components/icons";
 import { cx } from "@/components/ui";
 
 const items = [
@@ -9,6 +9,7 @@ const items = [
   { href: "/masjid", label: "Masjid", Icon: IconMosque },
   { href: "/journey", label: "Perjalanan", Icon: IconTrend },
   { href: "/history", label: "Jurnal", Icon: IconCalendar },
+  { href: "/chat", label: "Chat AI", Icon: IconChat },
 ];
 
 export function BottomNav() {

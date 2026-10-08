@@ -131,6 +131,9 @@ body {
   background-position: 0 12px;
 }
 
+.reflection-sheet { transition: height 240ms ease, max-height 240ms ease, border-radius 240ms ease; }
+.reflection-sheet[open] { animation: ctaIn 220ms ease-out; }
+
 /* CTA feedback: prep confirmation pops, then "Catat Shalat" eases in (PRD §7.2). */
 @keyframes prepPop {
   0% { transform: scale(0.96); opacity: 0.5; }

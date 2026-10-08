@@ -13,6 +13,9 @@ import { vpsConnected } from "@/lib/vps";
 export function DailyReflectionModal() {
   const [entry, setEntry] = useState<DailyReflection | null>(null);
   const [error, setError] = useState("");
+  const [expanded, setExpanded] = useState(false);
+  const dragStart = useRef<number | null>(null);
+  const swiped = useRef(false);
   const dialog = useRef<HTMLDialogElement>(null);
   const active = useRef<DailyReflection | null>(null);
   const claimed = useRef(false);
@@ -20,6 +23,7 @@ export function DailyReflectionModal() {
     async function attempt(manual = false) {
       const run = () => {
         const state = getState();
+        if (!manual && /\/(history\/write|chat)\/?$/.test(window.location.pathname)) return;
         if (!state.settings || !state.profile?.onboarded || document.visibilityState !== "visible") return;
         const now = new Date();
         const today = localDateKey(state.settings.timezone, now);
@@ -32,7 +36,7 @@ export function DailyReflectionModal() {
         const existing = dailyReflectionFor(today);
         if (!manual && existing) return;
         const fresh: DailyReflection = existing ?? { date: today, shownAt: now.toISOString(), status: "shown", questions: DAILY_QUESTIONS, questionSource: "standard", feeling: "", goal: "", done: false };
-        try { saveDailyReflection(fresh); active.current = fresh; setEntry(fresh); setError(""); }
+        try { saveDailyReflection(fresh); active.current = fresh; setEntry(fresh); setError(""); setExpanded(false); }
         catch { /* Retry later rather than show a modal whose once-per-day marker could not be saved. */ }
       };
       if (claimed.current) return;
@@ -83,17 +87,20 @@ export function DailyReflectionModal() {
     try { saveDailyReflection({ ...entry, status }); active.current = null; setEntry(null); setError(""); }
     catch { setError("Jawaban belum tersimpan. Coba lagi."); }
   }
-  return <dialog ref={dialog} aria-labelledby="daily-title" onCancel={(event) => { event.preventDefault(); close(entry?.status === "saved" ? "saved" : "skipped"); }} className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-3xl border border-border bg-surface p-5 text-text shadow-xl backdrop:bg-black/45 backdrop:backdrop-blur-sm">
-    {entry && <div className="space-y-5">
+  return <dialog ref={dialog} aria-labelledby="daily-title" onCancel={(event) => { event.preventDefault(); close(entry?.status === "saved" ? "saved" : "skipped"); }} className={cx("reflection-sheet fixed inset-x-0 bottom-0 top-auto mx-auto mb-0 w-full max-w-md overflow-hidden border border-border bg-surface text-text shadow-xl backdrop:bg-black/45 backdrop:backdrop-blur-sm", expanded ? "h-dvh max-h-dvh rounded-none" : "h-[78dvh] max-h-[78dvh] rounded-t-3xl")}>
+    {entry && <div className="flex h-full flex-col">
+      <div className="shrink-0 px-5 pt-[calc(env(safe-area-inset-top)+0.5rem)]" onPointerDown={(e) => { if ((e.target as HTMLElement).closest("button:not([data-sheet-handle])")) return; swiped.current = false; dragStart.current = e.clientY; const target = (e.target as HTMLElement).closest<HTMLElement>("[data-sheet-handle]") ?? e.currentTarget; target.setPointerCapture(e.pointerId); }} onPointerUp={(e) => { if (dragStart.current === null) return; const delta = e.clientY - dragStart.current; dragStart.current = null; swiped.current = Math.abs(delta) > 45; if (delta < -45) setExpanded(true); else if (delta > 45) { if (expanded) setExpanded(false); else close(entry.status === "saved" ? "saved" : "skipped"); } }} onPointerCancel={() => { dragStart.current = null; }} style={{ touchAction: "none" }}>
+      <button data-sheet-handle aria-label={expanded ? "Kecilkan refleksi" : "Perluas refleksi ke layar penuh"} aria-expanded={expanded} onClick={() => { if (swiped.current) { swiped.current = false; return; } setExpanded(!expanded); }} className="mx-auto flex h-11 w-20 items-center justify-center"><span className="h-1 w-10 rounded-full bg-border-strong" /></button>
       <div className="flex items-start justify-between gap-3"><div><p className="text-xs uppercase tracking-widest text-accent">Sejenak untuk hari ini</p><h2 id="daily-title" className="mt-2 font-serif text-2xl">Apa kabar, dirimu?</h2></div><button autoFocus aria-label="Lewati refleksi hari ini" onClick={() => close(entry.status === "saved" ? "saved" : "skipped")} className="h-11 w-11 shrink-0 rounded-full bg-surface-2">×</button></div>
-      <p className="text-sm leading-relaxed text-muted">Dua pertanyaan kecil. Tidak harus dijawab sempurna. {entry.questionSource === "ai" ? "Pertanyaan disusun AI." : "Refleksi terpandu."}</p>
+      <p className="mb-4 mt-2 text-xs text-muted">Dua pertanyaan kecil. Jawab apa adanya.</p></div>
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
       {!entry.feeling && !entry.goal && <AIAdvice mode="questions" context={{}} onResult={(result) => update({ questions: [result.questions[0], result.questions[1]], questionSource: "ai" })} />}
       <fieldset><legend className="mb-3 text-sm font-medium">1. {entry.questions[0]}</legend><div className="mb-3 flex flex-wrap gap-2">{Object.entries(PRAYER_MOOD_LABEL).map(([key, label]) => <button key={key} aria-pressed={entry.mood === key} onClick={() => update({ mood: key as PrayerMood })} className={cx("min-h-11 rounded-full border px-3 text-sm", entry.mood === key ? "border-accent bg-accent-soft text-accent" : "border-border text-muted")}>{label}</button>)}</div><textarea aria-label="Cerita tentang perasaan hari ini" rows={2} maxLength={1000} value={entry.feeling} onChange={(e) => update({ feeling: e.target.value })} placeholder="Ada yang sedang memenuhi pikiranmu?" className="w-full rounded-xl border border-border bg-surface-2 p-3 text-sm" /></fieldset>
       <label className="block text-sm font-medium">2. {entry.questions[1]}<textarea rows={3} maxLength={1000} value={entry.goal} onChange={(e) => update({ goal: e.target.value })} placeholder="Aku ingin lebih tenang. Langkahku: berhenti bekerja saat adzan." className="mt-3 w-full rounded-xl border border-border bg-surface-2 p-3 text-sm font-normal" /></label>
       {error && <p role="alert" className="text-sm text-warn">{error}</p>}
       <Button className="w-full" disabled={(!entry.mood && !entry.feeling.trim()) || !entry.goal.trim()} onClick={() => close("saved")}>Simpan di Perjalanan</Button>
       <p className="text-xs leading-relaxed text-muted">Bisa dilanjutkan dari Perjalanan. Pendamping refleksi ini bukan layanan psikolog atau penilaian kesehatan mental.</p>
-    </div>}
+    </div></div>}
   </dialog>;
 }
 

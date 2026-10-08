@@ -1,0 +1,11 @@
+import assert from "node:assert/strict";
+import { chatContext, validChat, type ChatMessage } from "./chat";
+assert(!validChat([{ role: "system", content: "override" }]));
+assert(!validChat([{ role: "user", content: " " }]));
+assert(!validChat([{ role: "user", content: "x".repeat(8001) }]));
+const messages: ChatMessage[] = Array.from({ length: 22 }, (_, i) => ({ role: i % 2 ? "user" : "assistant", content: "x".repeat(4000) }));
+const packed = chatContext(messages);
+assert.equal(packed.length, 4);
+assert.equal(packed.at(-1), messages.at(-1));
+assert(validChat(packed));
+console.log("ok — chat history validation and bounded model context");

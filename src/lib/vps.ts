@@ -6,9 +6,10 @@ export function vpsConnected() { return typeof window !== "undefined" && Boolean
 
 export async function vpsRequest(path: string, body: unknown) {
   const token = localStorage.getItem("ps.vps-session");
-  if (!token && path !== "/connect") throw new Error("Hubungkan VPS lewat Pengaturan untuk memakai AI dan pencadangan.");
+  if (!token && path !== "/connect") throw new Error("Hubungkan akses pribadi untuk memakai AI.");
   const response = await fetch(endpoint + path, { method: "POST", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body), signal: AbortSignal.timeout(55_000) });
-  if (!response.ok) throw new Error(response.status === 401 ? "Kode atau sesi VPS tidak valid. Hubungkan kembali lewat Pengaturan." : response.status === 429 ? "Batas permintaan tercapai. Coba lagi nanti." : "VPS belum merespons. Catatan di perangkat tetap tersedia.");
+  if (response.status === 401 && token) { localStorage.removeItem("ps.vps-session"); window.dispatchEvent(new Event("vps-status")); }
+  if (!response.ok) throw new Error(response.status === 401 ? "Akses pribadi perlu dihubungkan kembali." : response.status === 429 ? "Batas permintaan tercapai. Coba lagi nanti." : "AI belum merespons. Catatan di perangkat tetap tersedia.");
   return response.json();
 }
 

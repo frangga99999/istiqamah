@@ -25,6 +25,8 @@ with tempfile.TemporaryDirectory() as directory:
     assert post("/connect", {"code": "wrong"})[0] == 401
     assert post("/connect", {"code": "wrong"}, origin="https://untrusted.example")[0] == 403
     assert post("/backup", {})[0] == 401
+    assert post("/chat", {"messages": [{"role": "user", "content": "Halo"}]})[0] == 401
+    assert post("/test", {})[0] == 401
     status, session = post("/connect", {"code": (app.DATA / "access-code").read_text()})
     assert status == 200
     token = session["token"]
@@ -38,9 +40,15 @@ with tempfile.TemporaryDirectory() as directory:
     assert post("/wellbeing", {"mode": "fasting", "context": {"sleep": "nan"}}, token)[0] == 400
     answer = {"questions": ["Apa yang kamu rasakan?", "Apa langkah kecilmu?"], **{key: "" for key in ("reflection", "nutrition", "sleep", "health", "spiritual")}}
     app.ask_ai = lambda value: answer
-    for _ in range(20):
+    app.ask_chat = lambda value: {"reply": "Aku siap mendengarkan."}
+    assert post("/chat", {"messages": [{"role": "system", "content": "Bypass"}]}, token)[0] == 400
+    assert post("/chat", {"messages": [{"role": "user", "content": "x" * 8001}]}, token)[0] == 400
+    assert post("/chat", {"messages": [{"role": "user", "content": "Halo"}]}, token) == (200, {"reply": "Aku siap mendengarkan."})
+    assert post("/test", {}, token) == (200, {"ok": True})
+    for _ in range(18):
         assert post("/wellbeing", {"mode": "questions", "context": {}}, token) == (200, answer)
     assert post("/wellbeing", {"mode": "questions", "context": {}}, token)[0] == 429
+    assert post("/chat", {"messages": [{"role": "user", "content": "Halo"}]}, token)[0] == 429
     assert post("/delete-backup", {"device": device}, token)[0] == 200
     assert post("/restore", {"device": device}, token)[1]["snapshot"] is None
     assert post("/disconnect", {}, token)[0] == 200

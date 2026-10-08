@@ -36,6 +36,10 @@ export const IconCalendar = (p: P) => (
   </svg>
 );
 
+export const IconChat = (p: P) => (
+  <svg {...base(p)} aria-hidden><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H4l-1 1V11.5A8.5 8.5 0 0 1 11.5 3h1a8.5 8.5 0 0 1 8.5 8.5z" /><path d="M8 10h8M8 14h5" /></svg>
+);
+
 export const IconGear = (p: P) => (
   <svg {...base(p)} aria-hidden>
     <circle cx="12" cy="12" r="3.25" />

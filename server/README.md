@@ -8,6 +8,8 @@ The private connection code lives in `server/data/access-code` with mode 0600. S
 
 AI uses the existing `VPS-Combo-gue` router on `127.0.0.1:20128/v1`. The router key is read into memory from the existing protected Hermes environment. It never enters frontend builds. The router may use external model providers. Only an explicitly requested section's answers are sent; first-day question generation sends no journal content.
 
+Chat AI provides private sign-in and an authenticated model connection test (`/test`). `/chat` accepts only bounded user/assistant messages; server instructions cannot be supplied by the browser. Chat uses the same 20-request daily quota. Conversation history stays in browser sessionStorage for the tab session and is not added to journal backups. Settings exposes backup/restore controls, not model/server configuration.
+
 Frontend configuration: `NEXT_PUBLIC_VPS_API_URL=https://mathspeedy.duckdns.org/istiqamah-api`. With this variable, the app uses VPS backups instead of the existing Supabase sync path.
 
 Checks:
@@ -15,6 +17,7 @@ Checks:
 ```sh
 python3 server/test_app.py
 node --import tsx src/lib/engine/engine.test.ts
+node --import tsx src/lib/chat.test.ts
 npm run lint
 npm run build
 ```

@@ -10,7 +10,7 @@ import { Button, Card, Sheet, cx } from "@/components/ui";
 import { IconBack, IconCheck, IconChevron } from "@/components/icons";
 import { enableNotifications, notifyStatus } from "@/lib/notify";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase/client";
-import { VPSSettings } from "@/components/vps-settings";
+import { PrivateData } from "@/components/vps-settings";
 import { vpsConfigured } from "@/lib/vps";
 
 export default function SettingsPage() {
@@ -42,7 +42,7 @@ export default function SettingsPage() {
   }
 
   function removeAll() {
-    if (confirm("Hapus semua catatan di perangkat ini? Ekspor dulu bila ingin menyimpannya. Cadangan VPS dapat dihapus lewat bagian Ruang pribadi.")) {
+    if (confirm("Hapus semua catatan di perangkat ini? Ekspor dulu bila ingin menyimpannya. Cadangan server dapat dihapus lewat bagian Cadangan pribadi.")) {
       deleteAll();
       router.replace("/onboarding");
     }
@@ -58,7 +58,6 @@ export default function SettingsPage() {
       </header>
 
       <div className="space-y-8 px-4 pb-16">
-        <VPSSettings />
         {/* Notifications (§106) */}
         <Group title="Pengingat">
           <RowButton
@@ -157,6 +156,7 @@ export default function SettingsPage() {
             Hapus data perangkat ini
           </button>
         </Group>
+        <PrivateData />
 
         <p className="px-1 text-center text-xs text-subtle">
           Data ibadahmu bersifat pribadi dan tersimpan di perangkat ini.

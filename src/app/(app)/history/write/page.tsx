@@ -11,7 +11,7 @@ function Editor() {
   if (!state.settings) return null;
   const id = params.get("id") ?? undefined;
   const kind = params.get("kind") === "dhikr" ? "dhikr" : "story";
-  return <SpiritualJournal key={id ?? kind} editorOnly entryId={id} entryKind={kind} today={localDateKey(state.settings.timezone, new Date())} />;
+  return <SpiritualJournal editorOnly entryId={id} entryKind={kind} today={localDateKey(state.settings.timezone, new Date())} />;
 }
 
 export default function WritePage() {

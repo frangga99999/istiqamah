@@ -166,6 +166,9 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
+.tasbih-bead { transform-box: fill-box; transform-origin: center; animation: beadTouch 280ms ease-out; }
+@keyframes beadTouch { from { transform: scale(.85); } 55% { transform: scale(1.12); } to { transform: scale(1); } }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

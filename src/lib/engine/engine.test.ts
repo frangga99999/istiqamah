@@ -6,7 +6,7 @@ import { buildProfile, classifyQuality, delayMinutes } from "@/lib/engine/profil
 import { planReminder } from "@/lib/engine/adaptive";
 import { prayerState } from "@/lib/prayer/state";
 import { dhuhaWindow, DEFAULT_SETTINGS, localDateKey } from "@/lib/prayer/times";
-import { hasJournalContent, journalTimeline } from "@/lib/journal";
+import { hasJournalContent, journalTimeline, tasbihBead } from "@/lib/journal";
 import type { JournalEntry } from "@/lib/types";
 import { getState, saveJournalEntry, removeJournalEntry, restoreSnapshot } from "@/lib/store";
 import { reflectionWindow, fastingDates, isMondayThursday } from "@/lib/wellbeing";
@@ -104,6 +104,8 @@ const entry: JournalEntry = { id: "story", date: "2026-10-07", kind: "story", ti
 ok(hasJournalContent(entry), "a story can be saved without title or mood");
 ok(!hasJournalContent({ ...entry, body: "   " }), "empty story is not published");
 ok(hasJournalContent({ ...entry, kind: "dhikr", body: "", count: 3 }), "dhikr can be saved without a story");
+ok(tasbihBead(0) === -1 && tasbihBead(1) === 0, "tasbih starts empty and advances on the first tap");
+ok(tasbihBead(33) === 32 && tasbihBead(34) === 0 && tasbihBead(66) === 32, "tasbih wraps after 33 beads without resetting the count");
 const mixed = [entry, { ...entry, id: "draft", draft: true }, { ...entry, id: "old", date: "2026-09-30" }];
 ok(journalTimeline(mixed, [], "2026-10", "TENANG", "all", false).length === 1, "search excludes drafts and other months");
 ok(journalTimeline(mixed, [log("asr", 1, 4)], "", "", "prayer", false).length === 1, "prayer logs appear without a note");

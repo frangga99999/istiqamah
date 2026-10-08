@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useApp, saveJournalEntry, removeJournalEntry } from "@/lib/store";
 import { PRAYERS, PRAYER_LABEL, PRAYER_MOOD_LABEL, type JournalEntry, type PrayerLog, type PrayerMood, type PrayerName } from "@/lib/types";
-import { hasJournalContent, journalTimeline } from "@/lib/journal";
+import { hasJournalContent, journalTimeline, tasbihBead } from "@/lib/journal";
 import { Button, Card, cx } from "@/components/ui";
 
 const field = "w-full min-w-0 rounded-xl border border-border bg-surface-2 px-3 py-3 text-sm text-text";
@@ -70,19 +70,25 @@ export function SpiritualJournal({ today, onPrayer, editorOnly = false, entryId,
         <button className="min-h-11 px-2 text-sm text-muted" onClick={() => { if (!hasJournalContent(editor) || write(editor)) router.push("/history"); }}>← Kembali</button>
         <Button disabled={!hasJournalContent(editor)} onClick={finish}>Simpan</Button>
       </div>
-      <h1 className="mb-6 font-serif text-3xl">{editor.kind === "dhikr" ? "Pelan-pelan, hadir." : "Bagaimana harimu?"}</h1>
+      <h1 className="mb-6 font-serif text-3xl">{editor.kind === "dhikr" ? "Tasbih" : "Bagaimana harimu?"}</h1>
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <label className="min-w-0 space-y-1 text-xs text-muted">Tanggal<input aria-label="Tanggal cerita" type="date" max={today} value={editor.date} onChange={(e) => { if (e.target.value && e.target.value <= today) change({ date: e.target.value }); }} className={field} /></label>
           <label className="min-w-0 space-y-1 text-xs text-muted">Terhubung dengan<select value={editor.prayer ?? ""} onChange={(e) => change({ prayer: (e.target.value || undefined) as PrayerName | undefined })} className={field}><option value="">Momen sehari-hari</option>{PRAYERS.map((p) => <option key={p} value={p}>Shalat {PRAYER_LABEL[p]}</option>)}</select></label>
         </div>
-        {editor.kind === "dhikr" && <div className="rounded-2xl border border-accent/25 bg-accent-soft/40 p-4 text-center">
+        {editor.kind === "dhikr" && <div className="rounded-3xl border border-border bg-surface p-4 text-center">
           <label className="block text-sm text-muted">Bacaan dzikir<select className={`${field} mt-2`} value={editor.dhikr} onChange={(e) => change({ dhikr: e.target.value, count: 0 })} disabled={editor.count > 0}>{dhikrOptions.map((text) => <option key={text}>{text}</option>)}</select></label>
-          <button aria-label={`Tambah hitungan ${editor.dhikr}, sekarang ${editor.count}`} onClick={() => change({ count: Math.min(99999, editor.count + 1) })} className="mx-auto my-5 flex h-36 w-36 flex-col items-center justify-center rounded-full border-4 border-accent/30 bg-surface text-accent shadow-lg shadow-accent/10 transition duration-150 active:scale-95">
-            <span className="tabular text-5xl font-light">{editor.count}</span><span className="mt-2 text-xs">ketuk untuk menghitung</span>
+          <button aria-label={`Tambah hitungan ${editor.dhikr}, sekarang ${editor.count}`} disabled={editor.count >= 99999} onClick={() => change({ count: Math.min(99999, editor.count + 1) })} className="relative mx-auto mt-4 block w-full max-w-72 rounded-3xl text-accent transition-transform duration-150 active:scale-[0.97] disabled:opacity-60">
+            <svg viewBox="0 0 280 320" className="w-full" aria-hidden="true">
+              <circle cx="140" cy="132" r="105" fill="none" stroke="var(--border-strong)" strokeWidth="2" />
+              {Array.from({ length: 33 }, (_, i) => { const angle = -Math.PI / 2 + i * Math.PI * 2 / 33; const active = i === tasbihBead(editor.count); const filled = i <= tasbihBead(editor.count); return <circle key={i} cx={140 + Math.cos(angle) * 105} cy={132 + Math.sin(angle) * 105} r={active ? 10 : 7.5} fill={filled ? "var(--accent)" : "var(--surface-2)"} stroke={filled ? "var(--accent-strong)" : "var(--border-strong)"} strokeWidth="1.5" className="transition-all duration-200" />; })}
+              <path d="M140 237v24m-7 15-7 26m14-26v30m7-30 7 26" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" />
+              <ellipse cx="140" cy="267" rx="9" ry="13" fill="var(--accent)" />
+            </svg>
+            <span className="pointer-events-none absolute inset-x-0 top-[28%] flex flex-col items-center"><span key={editor.count} className="tabular text-5xl font-light motion-safe:animate-[ctaIn_160ms_ease-out]">{editor.count}</span><span className="mt-3 text-xs text-muted">ketuk satu kali, satu dzikir</span></span>
           </button>
           <button disabled={!editor.count} onClick={() => change({ count: Math.max(0, editor.count - 1) })} className="min-h-11 rounded-full border border-border px-4 text-sm text-muted disabled:opacity-40">Koreksi −1</button>
-          <p className="mt-2 text-xs text-muted">Tanpa target wajib. Berhenti saat kamu siap.</p>
+          <p className="mt-2 text-xs text-muted">33 butir per putaran. Hitungan terus berlanjut.</p>
         </div>}
         <input aria-label="Judul cerita" className="w-full border-b border-border bg-transparent py-3 text-xl outline-none" value={editor.title} maxLength={100} placeholder="Judul, kalau mau" onChange={(e) => change({ title: e.target.value })} />
         <label className="block text-sm text-muted">Ceritakan dengan bahasamu<textarea className={`${field} journal-paper mt-2 min-h-48 resize-y leading-8`} value={editor.body} maxLength={12000} placeholder="Hari ini aku..." onChange={(e) => change({ body: e.target.value })} /></label>
@@ -93,7 +99,7 @@ export function SpiritualJournal({ today, onPrayer, editorOnly = false, entryId,
     </div> : <>
       <Card className="relative overflow-hidden p-6">
         <Link href="/history/write" className="block"><p className="text-xs uppercase tracking-widest text-accent">Sejenak untuk diri sendiri</p><h2 className="mt-3 font-serif text-2xl leading-tight">Apa yang ingin kamu simpan<br />dari hari ini?</h2></Link>
-        <div className="mt-5 grid grid-cols-2 gap-2"><Button onClick={() => create("story")}>Tulis cerita</Button><Button variant="secondary" onClick={() => create("dhikr")}>Temani dzikir</Button></div>
+        <div className="mt-5 grid grid-cols-2 gap-2"><Button onClick={() => create("story")}>Tulis cerita</Button><Button variant="secondary" onClick={() => create("dhikr")}>Buka tasbih</Button></div>
       </Card>
       {drafts.length > 0 && <div className="space-y-2"><h3 className="text-sm font-medium">Belum selesai bercerita</h3>{drafts.map((draft) => <Link key={draft.id} href={`/history/write?id=${encodeURIComponent(draft.id)}`} className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-dashed border-accent/40 p-3 text-left text-sm"><span className="min-w-0 truncate">{draft.title || (draft.kind === "dhikr" ? `${draft.dhikr} · ${draft.count} kali` : draft.body || "Draf cerita")}</span><span className="shrink-0 text-accent">Lanjutkan</span></Link>)}</div>}
     </>}

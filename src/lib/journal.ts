@@ -1,5 +1,7 @@
 import { PRAYER_LABEL, PRAYER_MOOD_LABEL, type JournalEntry, type PrayerLog } from "@/lib/types";
 
+export const tasbihBead = (count: number) => count > 0 ? (count - 1) % 33 : -1;
+
 export function hasJournalContent(entry: JournalEntry) {
   return Boolean(entry.body.trim() || entry.gratitude.trim() || entry.nextStep.trim() || (entry.kind === "dhikr" && entry.count > 0));
 }

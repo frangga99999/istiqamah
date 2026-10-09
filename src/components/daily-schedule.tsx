@@ -4,8 +4,10 @@ import Link from "next/link";
 import { dhuhaWindow, formatTime, scheduleForDay } from "@/lib/prayer/times";
 import { PRAYERS, PRAYER_LABEL, type PrayerSettings } from "@/lib/types";
 import { cx } from "@/components/ui";
+import type { PrayerRow } from "@/lib/today";
+import { IconCheck, IconChevron, IconMosque, IconUsers } from "@/components/icons";
 
-export function DailySchedule({ settings, now, date }: { settings: PrayerSettings; now: Date; date: string }) {
+export function DailySchedule({ settings, now, date, rows, onCheckIn }: { settings: PrayerSettings; now: Date; date: string; rows: PrayerRow[]; onCheckIn: (row: PrayerRow) => void }) {
   // The civil date is the invalidation key; the countdown's second ticks don't recalculate astronomy.
   const times = useMemo(() => {
     const reference = new Date(`${date}T12:00:00Z`);
@@ -19,15 +21,21 @@ export function DailySchedule({ settings, now, date }: { settings: PrayerSetting
   const dhuha = times.dhuha;
   const active = Boolean(dhuha && now >= dhuha.start && now < dhuha.end);
   const cells = ["fajr", "dhuha", "dhuhr", "asr", "maghrib", "isha"] as const;
-  return <section aria-label="Jadwal shalat hari ini" className="overflow-hidden rounded-2xl border border-border bg-surface">
-    <h2 className="px-5 pt-5 pb-3 text-base font-semibold">Jadwal shalat</h2>
+  return <section aria-label="Jadwal dan catatan shalat" className="overflow-hidden border-t border-border">
+    <div className="flex items-center justify-between px-5 pt-5 pb-3"><h2 className="text-base font-semibold">Jadwal & catatan</h2><span className="text-xs text-muted">{rows.filter((row) => row.log?.performed_at).length} / 5 tercatat</span></div>
     <ul className="divide-y divide-border px-5">
       {cells.map((p) => {
         const isDhuha = p === "dhuha";
+        const label = p === "dhuha" ? "Dhuha" : PRAYER_LABEL[p];
         const selected = isDhuha ? active : p === upcoming;
-        return <li key={p} className={cx("flex min-h-14 items-center justify-between gap-3 py-3 transition-colors", selected ? "text-accent" : "text-text")}>
-          <div className="flex flex-wrap items-center gap-2"><span className="text-sm font-medium">{isDhuha ? "Dhuha" : PRAYER_LABEL[p]}</span>{selected && <span className="rounded-full bg-accent-soft px-2 py-1 text-[10px]">{isDhuha ? "Sedang berlangsung" : "Berikutnya"}</span>}</div>
-          <span className="shrink-0 tabular text-sm font-semibold">{isDhuha ? dhuha ? `${formatTime(dhuha.start, settings.timezone)}–${formatTime(dhuha.end, settings.timezone)}` : "Tidak tersedia" : formatTime(times.schedule.times[p], settings.timezone)}</span>
+        const row = rows.find((item) => item.prayer === p);
+        const done = Boolean(row?.log?.performed_at);
+        const missed = Boolean(row?.log?.missed);
+        const entered = Boolean(row && row.at <= now);
+        const status = done ? `Shalat ${formatTime(row!.log!.performed_at!, settings.timezone)}` : missed ? "Terlewat · ubah catatan" : entered ? "Belum tercatat · ketuk untuk mencatat" : selected ? "Berikutnya" : "Belum masuk waktu";
+        const content = <><span className="flex min-w-0 items-center gap-3"><span className={cx("grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-semibold", missed ? "bg-danger-soft text-danger" : done ? "bg-accent-soft text-accent" : "bg-surface-2 text-muted")}>{done ? row?.log?.performed_location === "mosque" ? <IconMosque width={18} height={18} /> : row?.log?.performed_location === "congregation" ? <IconUsers width={18} height={18} /> : <IconCheck width={18} height={18} /> : label[0]}</span><span className="min-w-0"><span className="block text-sm font-semibold">{label}</span><span className={cx("mt-1 block text-[11px] leading-relaxed", missed ? "text-danger" : "text-muted")}>{isDhuha ? active ? "Waktunya Dhuha" : "Sunnah" : status}</span></span></span><span className="flex shrink-0 items-center gap-2"><span className="tabular text-sm font-semibold">{isDhuha ? dhuha ? `${formatTime(dhuha.start, settings.timezone)}–${formatTime(dhuha.end, settings.timezone)}` : "Tidak tersedia" : formatTime(times.schedule.times[p], settings.timezone)}</span>{entered && <IconChevron width={14} height={14} className="text-muted" />}</span></>;
+        return <li key={p} className={cx(selected && "bg-accent-soft/30", missed && "bg-danger-soft/30")}>
+          {row ? <button disabled={!entered} aria-label={`${label}, adzan ${formatTime(row.at, settings.timezone)}, ${status}`} onClick={() => onCheckIn(row)} className="flex min-h-20 w-full items-center justify-between gap-3 rounded-xl px-2 py-3 text-left transition enabled:hover:bg-surface-2 enabled:active:scale-[.99]">{content}</button> : <div className="flex min-h-20 items-center justify-between gap-3 px-2 py-3">{content}</div>}
         </li>;
       })}
     </ul>

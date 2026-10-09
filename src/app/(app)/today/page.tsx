@@ -2,15 +2,15 @@
 import { useState, type CSSProperties } from "react";
 import { useApp, upsertLog } from "@/lib/store";
 import { useNow } from "@/lib/use-now";
-import { buildToday, type PrayerRow, type TodayView } from "@/lib/today";
+import { buildToday, type TodayView } from "@/lib/today";
 import { PRAYER_LABEL, type PrayerName } from "@/lib/types";
 import { formatTime } from "@/lib/prayer/times";
 import { longDate } from "@/lib/format";
 import { quoteOfDay } from "@/lib/quotes";
-import { Button, Card, cx } from "@/components/ui";
+import { Button, cx } from "@/components/ui";
 import { CheckIn } from "@/components/check-in";
 import { DailySchedule } from "@/components/daily-schedule";
-import { IconBell, IconCheck, IconChevron, IconClock, IconMosque, IconSpark, IconUsers } from "@/components/icons";
+import { IconBell, IconCheck, IconChevron, IconClock, IconMosque, IconSpark } from "@/components/icons";
 import { notifyStatus, useReminders } from "@/lib/notify";
 import Link from "next/link";
 
@@ -69,13 +69,15 @@ export default function TodayPage() {
       )}
 
       {/* ── HERO: live countdown ring ────────────────────── */}
-      <section className="pt-1">
+      <section aria-label="Shalat hari ini" className="overflow-hidden rounded-3xl border border-border bg-surface">
+        <div className="flex items-center justify-between px-5 pt-5"><h2 className="text-base font-semibold">Shalat hari ini</h2><span className="text-xs text-muted">{view.completed} dari 5 terjaga</span></div>
+        <div className="px-5 pt-5">
         <CountdownHero view={view} now={now} tz={tz} />
-      </section>
+        </div>
 
       {/* ── TARGET + ACTION ──────────────────────────────── */}
       {!view.hero.isTomorrow && (
-        <Card
+        <div
           className={cx(
             "relative overflow-hidden p-5",
             urgent
@@ -148,10 +150,11 @@ export default function TodayPage() {
               </Button>
             )}
           </div>
-        </Card>
+        </div>
       )}
 
-      <DailySchedule settings={state.settings} now={now} date={view.date} />
+      <DailySchedule settings={state.settings} now={now} date={view.date} rows={view.rows} onCheckIn={(row) => setCheckIn({ prayer: row.prayer, at: row.at })} />
+      </section>
 
       {/* ── INSIGHT (invisible assistant, §65) ───────────── */}
       {!view.hero.isTomorrow && (
@@ -176,26 +179,6 @@ export default function TodayPage() {
           </p>
         </Link>
       )}
-
-      {/* ── TODAY PROGRESS ───────────────────────────────── */}
-      <section>
-        <div className="mb-2.5 flex items-center justify-between px-1">
-          <h2 className="text-[15px] font-semibold text-text">Hari ini</h2>
-          <span className="tabular text-sm font-medium text-muted">{view.completed} / 5</span>
-        </div>
-        <Card className="divide-y divide-border">
-          {view.rows.map((row, i) => (
-            <PrayerRowItem
-              key={row.prayer}
-              row={row}
-              index={i}
-              tz={tz}
-              now={now}
-              onCheckIn={() => setCheckIn({ prayer: row.prayer, at: row.at })}
-            />
-          ))}
-        </Card>
-      </section>
 
       {/* ── Subtle daily quote (§ sweetener) ──────────────── */}
       <figure className="px-3 pt-2 text-center">
@@ -237,6 +220,8 @@ function CountdownHero({ view, now, tz }: { view: TodayView; now: Date; tz: stri
   const m = Math.floor(remaining / 60_000) % 60;
   const s = Math.floor(remaining / 1000) % 60;
   const big = hero.isNow ? "Masuk" : h > 0 ? `${h}:${pad2(m)}:${pad2(s)}` : `${m}:${pad2(s)}`;
+  const nextSeconds = Math.max(0, Math.ceil((view.next.at.getTime() - nowMs) / 1000));
+  const nextCountdown = `${Math.floor(nextSeconds / 3600)}:${pad2(Math.floor(nextSeconds / 60) % 60)}:${pad2(nextSeconds % 60)}`;
 
   const late = hero.state === "LATE_RISK";
   const preparing = hero.state === "PREPARATION";
@@ -298,6 +283,7 @@ function CountdownHero({ view, now, tz }: { view: TodayView; now: Date; tz: stri
           </p>
         </div>
       </div>
+      {hero.isNow && <p className="mb-4 mt-3 text-center text-xs text-muted">Menuju {PRAYER_LABEL[view.next.prayer]}{view.next.isTomorrow ? " besok" : ""} · <span className="tabular font-semibold text-accent">{nextCountdown}</span> lagi · {formatTime(view.next.at, tz)}</p>}
     </div>
   );
 }
@@ -314,77 +300,5 @@ function Shine() {
         background: "linear-gradient(100deg, transparent 20%, rgba(255,255,255,0.28) 50%, transparent 80%)",
       }}
     />
-  );
-}
-
-function PrayerRowItem({
-  row,
-  index,
-  tz,
-  now,
-  onCheckIn,
-}: {
-  row: PrayerRow;
-  index: number;
-  tz: string;
-  now: Date;
-  onCheckIn: () => void;
-}) {
-  const done = Boolean(row.log?.performed_at);
-  const missed = row.state === "MISSED";
-  const entered = row.at.getTime() <= now.getTime();
-  // Tapping a past/current prayer opens check-in (also fixes a missed one, §102).
-  const tappable = entered;
-  const current = entered && !done && row.state !== "MISSED"; // in-progress prayer
-
-  return (
-    <button
-      disabled={!tappable}
-      onClick={onCheckIn}
-      style={{ animation: "rowIn .45s ease-out backwards", animationDelay: `${index * 65}ms` }}
-      className={cx(
-        "flex w-full items-center justify-between px-4 py-4 text-left transition",
-        missed && "bg-danger-soft/55",
-        current && "bg-accent-soft/40",
-        tappable ? "hover:bg-surface-2 active:scale-[0.99] active:bg-surface-2" : "cursor-default",
-      )}
-    >
-      <span className="flex items-center gap-3.5">
-        <StatusGlyph row={row} />
-        <span className={cx("text-base", done ? "font-medium text-text" : missed ? "font-medium text-danger" : "text-muted")}>
-          {PRAYER_LABEL[row.prayer]}
-        </span>
-      </span>
-      <span className={cx("tabular text-[15px]", missed ? "font-medium text-danger" : "text-subtle")}>
-        {missed ? "Terlewat" : row.log?.performed_at ? formatTime(row.log.performed_at, tz) : formatTime(row.at, tz)}
-      </span>
-    </button>
-  );
-}
-
-function StatusGlyph({ row }: { row: PrayerRow }) {
-  const loc = row.log?.performed_location;
-  if (row.log?.performed_at) {
-    if (loc === "mosque") return <IconMosque width={22} height={22} className="text-mosque" />;
-    if (loc === "congregation") return <IconUsers width={22} height={22} className="text-accent" />;
-    return <IconCheck width={22} height={22} className="text-ok" strokeWidth={2.25} />;
-  }
-  if (row.state === "MISSED")
-    return (
-      <span className="grid h-[22px] w-[22px] place-items-center rounded-full bg-danger text-sm font-semibold text-white" aria-label="Terlewat">
-        ×
-      </span>
-    );
-  if (row.state === "LATE_RISK")
-    return (
-      <span className="grid h-[22px] w-[22px] place-items-center" aria-hidden>
-        <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-warn" />
-      </span>
-    );
-  // upcoming / preparation / prayer-time not yet logged → hollow ring
-  return (
-    <span className="grid h-[22px] w-[22px] place-items-center" aria-hidden>
-      <span className="h-[17px] w-[17px] rounded-full border-2 border-border-strong" />
-    </span>
   );
 }

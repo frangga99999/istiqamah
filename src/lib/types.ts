@@ -139,6 +139,8 @@ export interface FastingLog {
   date: string;
   status: "planned" | "fasting" | "completed" | "skipped";
   note: string;
+  sleep_hours?: number;
+  rested?: "refreshed" | "okay" | "tired";
 }
 
 // PRD §76 — rolling behaviour profile per prayer, the engine's memory.

@@ -207,6 +207,7 @@ export function dailyReflectionFor(date: string) {
 }
 
 export function saveFastingLog(entry: FastingLog) {
+  if (entry.sleep_hours !== undefined && (!Number.isFinite(entry.sleep_hours) || entry.sleep_hours < 0 || entry.sleep_hours > 24)) throw new Error("Durasi tidur tidak valid.");
   const fastingLogs = { ...state.fastingLogs, [entry.date]: entry };
   localStorage.setItem(K.fastingLogs, JSON.stringify(fastingLogs));
   state = { ...state, fastingLogs };

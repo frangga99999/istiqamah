@@ -29,8 +29,10 @@ export function SpiritualJournal({ today, onPrayer, editorOnly = false, entryId,
   const [month, setMonth] = useState(today.slice(0, 7));
   const [kind, setKind] = useState("all");
   const [starred, setStarred] = useState(false);
-  const drafts = state.journalEntries.filter((entry) => entry.draft);
-  const timeline = journalTimeline(state.journalEntries, state.logs, month, query, kind, starred);
+  const [onlyToday, setOnlyToday] = useState(false);
+  const drafts = state.journalEntries.filter((entry) => entry.draft).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const todayDraft = drafts.find((entry) => entry.date === today && entry.kind === "story");
+  const timeline = journalTimeline(state.journalEntries, state.logs, onlyToday ? "" : month, query, kind, starred).filter((item) => !onlyToday || item.date === today);
   const months = [...new Set([today.slice(0, 7), ...state.logs.map((log) => log.date.slice(0, 7)), ...state.journalEntries.map((entry) => entry.date.slice(0, 7))])].sort().reverse();
 
   function write(entry: JournalEntry) {
@@ -44,7 +46,7 @@ export function SpiritualJournal({ today, onPrayer, editorOnly = false, entryId,
     if (write(next) && !entryId) router.replace(`/history/write?id=${encodeURIComponent(next.id)}`, { scroll: false });
   }
   function create(entryKind: JournalEntry["kind"]) {
-    router.push(`/history/write?kind=${entryKind}`);
+    router.push(entryKind === "story" && todayDraft ? `/history/write?id=${encodeURIComponent(todayDraft.id)}` : `/history/write?kind=${entryKind}`);
   }
   function finish() {
     if (!editor || !hasJournalContent(editor)) return;
@@ -71,14 +73,14 @@ export function SpiritualJournal({ today, onPrayer, editorOnly = false, entryId,
     {editor ? <div className="pt-[calc(env(safe-area-inset-top)+0.75rem)]">
       <div className="sticky top-0 z-20 mb-6 flex items-center justify-between gap-2 bg-bg/95 py-2 backdrop-blur-sm">
         <button className="min-h-11 px-2 text-sm text-muted" onClick={() => { if (!hasJournalContent(editor) || write(editor)) router.push("/history"); }}>← Kembali</button>
-        <Button disabled={!hasJournalContent(editor)} onClick={finish}>Simpan</Button>
+        <span className="flex items-center gap-3"><span className="text-[11px] text-muted" role="status">{error ? "Belum tersimpan" : state.journalEntries.some((entry) => entry.id === editor.id) ? "Tersimpan" : "Draf otomatis"}</span><Button disabled={!hasJournalContent(editor)} onClick={finish}>Selesai</Button></span>
       </div>
-      <h1 className="mb-6 font-serif text-3xl">{editor.kind === "dhikr" ? "Tasbih" : "Bagaimana harimu?"}</h1>
+      <h1 className="font-serif text-3xl">{editor.kind === "dhikr" ? "Tasbih" : "Ruang ceritamu"}</h1><p className="mb-6 mt-2 text-sm text-muted">{editor.kind === "dhikr" ? "Satu butir, satu momen untuk hadir." : "Satu kalimat pun cukup untuk hari ini."}</p>
       <div className="space-y-4">
         <details className="rounded-xl border border-border p-3"><summary className="cursor-pointer text-sm text-muted">{editor.date} · {editor.prayer ? PRAYER_LABEL[editor.prayer] : "Momen sehari-hari"} <span className="float-right text-accent">Ubah</span></summary><div className="mt-3 grid grid-cols-2 gap-3">
           <label className="min-w-0 space-y-1 text-xs text-muted">Tanggal<input aria-label="Tanggal cerita" type="date" max={today} value={editor.date} onChange={(e) => { if (e.target.value && e.target.value <= today) change({ date: e.target.value }); }} className={field} /></label>
           <label className="min-w-0 space-y-1 text-xs text-muted">Terhubung dengan<select value={editor.prayer ?? ""} onChange={(e) => change({ prayer: (e.target.value || undefined) as PrayerName | undefined })} className={field}><option value="">Momen sehari-hari</option>{PRAYERS.map((p) => <option key={p} value={p}>Shalat {PRAYER_LABEL[p]}</option>)}</select></label>
-        </div></details>
+        </div><label className="mt-3 block text-xs text-muted">Judul (opsional)<input aria-label="Judul cerita" className={`${field} mt-1`} value={editor.title} maxLength={100} placeholder="Beri nama momen ini" onChange={(e) => change({ title: e.target.value })} /></label></details>
         {editor.kind === "dhikr" && <div className="rounded-3xl border border-border bg-surface p-4 text-center">
           <label className="block text-sm text-muted">Bacaan dzikir<select className={`${field} mt-2`} value={editor.dhikr} onChange={(e) => change({ dhikr: e.target.value, count: 0 })} disabled={editor.count > 0}>{dhikrOptions.map((text) => <option key={text}>{text}</option>)}</select></label>
           <button aria-label={`Tambah hitungan ${editor.dhikr}, sekarang ${editor.count}`} disabled={editor.count >= 99999} onClick={() => change({ count: Math.min(99999, editor.count + 1) })} className="relative mx-auto mt-4 block w-full max-w-72 rounded-3xl text-accent transition-transform duration-150 active:scale-[0.97] disabled:opacity-60">
@@ -98,23 +100,23 @@ export function SpiritualJournal({ today, onPrayer, editorOnly = false, entryId,
           <button disabled={!editor.count} onClick={() => change({ count: Math.max(0, editor.count - 1) })} className="min-h-11 rounded-full border border-border px-4 text-sm text-muted disabled:opacity-40">Koreksi −1</button>
           <p className="mt-2 text-xs text-muted">33 butir per putaran. Hitungan terus berlanjut.</p>
         </div>}
-        <input aria-label="Judul cerita" className="w-full border-b border-border bg-transparent py-3 text-xl outline-none" value={editor.title} maxLength={100} placeholder="Judul, kalau mau" onChange={(e) => change({ title: e.target.value })} />
-        <div className="flex flex-wrap gap-2" aria-label="Ide untuk mulai menulis">{["Hari ini aku...", "Seusai shalat, aku merasa...", "Hal kecil yang kusyukuri...", "Yang ingin kulepaskan..."].map((idea) => <button key={idea} aria-pressed={prompt === idea} onClick={() => { setPrompt(idea); writing.current?.focus(); }} className={cx("min-h-11 rounded-full border px-3 text-xs", prompt === idea ? "border-accent/40 bg-accent-soft text-accent" : "border-border text-muted")}>{idea}</button>)}</div>
-        <label className="block text-sm text-muted">Ceritakan dengan bahasamu<textarea ref={writing} className={`${field} journal-paper mt-2 min-h-64 resize-y leading-8`} value={editor.body} maxLength={12000} placeholder={prompt} onChange={(e) => change({ body: e.target.value })} /></label>
+        <details className="text-sm text-muted"><summary className="min-h-11 cursor-pointer py-3">Butuh ide untuk mulai?</summary><div className="grid grid-cols-2 gap-2" aria-label="Ide untuk mulai menulis">{[{ label: "Cerita hari ini", text: "Hari ini aku..." }, { label: "Seusai shalat", text: "Seusai shalat, aku merasa..." }, { label: "Rasa syukur", text: "Hal kecil yang kusyukuri..." }, { label: "Lepaskan beban", text: "Yang ingin kulepaskan..." }].map((idea) => <button key={idea.label} aria-pressed={prompt === idea.text} onClick={() => { setPrompt(idea.text); writing.current?.focus(); }} className={cx("min-h-11 rounded-xl border px-3 text-left text-xs", prompt === idea.text ? "border-accent/40 bg-accent-soft text-accent" : "border-border text-muted")}>{idea.label}</button>)}</div></details>
+        <label className="block text-sm text-muted">{editor.kind === "dhikr" ? "Yang terasa setelah dzikir" : "Ceritakan dengan bahasamu"}<textarea ref={writing} className="journal-paper mt-3 min-h-72 w-full resize-y rounded-2xl border border-border bg-surface px-5 py-4 text-base leading-8 text-text placeholder:text-subtle focus:outline-accent" value={editor.body} maxLength={12000} placeholder={prompt} onChange={(e) => change({ body: e.target.value })} /></label>
         <fieldset><legend className="mb-2 text-sm text-muted">Saat ini aku merasa...</legend><div className="flex flex-wrap gap-2">{Object.entries(PRAYER_MOOD_LABEL).map(([key, label]) => <button key={key} aria-pressed={editor.mood === key} onClick={() => change({ mood: editor.mood === key ? undefined : key as PrayerMood })} className={cx("min-h-11 rounded-full border px-3 text-sm", editor.mood === key ? "border-accent bg-accent-soft text-accent" : "border-border text-muted")}>{label}</button>)}</div></fieldset>
         <details className="rounded-xl bg-surface-2 p-3" open={Boolean(editor.gratitude || editor.nextStep) || undefined}><summary className="cursor-pointer py-1 text-sm text-muted">Satu hal yang kusyukuri, satu langkah untuk besok</summary><label className="mt-3 block text-sm text-muted">Aku bersyukur karena...<textarea className={`${field} mt-2`} rows={2} maxLength={1000} value={editor.gratitude} onChange={(e) => change({ gratitude: e.target.value })} /></label><label className="mt-3 block text-sm text-muted">Langkah kecilku berikutnya<textarea className={`${field} mt-2`} rows={2} maxLength={1000} value={editor.nextStep} onChange={(e) => change({ nextStep: e.target.value })} /></label></details>
         <p className="text-xs text-muted" role="status">{error ? "Perubahan belum tersimpan" : !state.journalEntries.some((entry) => entry.id === editor.id) ? "Mulai menulis. Draf akan tersimpan otomatis." : editor.draft ? "Draf tersimpan di perangkat ini" : "Perubahan tersimpan di perangkat ini"}</p>
       </div>
     </div> : <>
-      <Card className="relative overflow-hidden p-6">
-        <Link href="/history/write" className="block"><p className="text-xs uppercase tracking-widest text-accent">Sejenak untuk diri sendiri</p><h2 className="mt-3 font-serif text-2xl leading-tight">Apa yang ingin kamu simpan<br />dari hari ini?</h2></Link>
-        <div className="mt-5 grid grid-cols-2 gap-2"><Button onClick={() => create("story")}>Tulis cerita</Button><Button variant="secondary" onClick={() => create("dhikr")}>Buka tasbih</Button></div>
+      <Card className="relative overflow-hidden border-accent/20 bg-accent-soft/30 p-6">
+        <p className="text-xs uppercase tracking-widest text-accent">Sejenak untuk diri sendiri</p><h2 className="mt-3 font-serif text-3xl leading-tight">Simpan satu momen<br />dari hari ini.</h2><p className="mt-3 text-sm text-muted">{todayDraft ? "Ceritamu menunggu. Lanjutkan saat kamu siap." : "Tentang shalat, rasa syukur, atau apa pun yang terasa."}</p>
+        <div className="mt-5 grid grid-cols-2 gap-2"><Button onClick={() => create("story")}>{todayDraft ? "Lanjutkan draf" : "Tulis hari ini"}</Button><Button variant="secondary" onClick={() => create("dhikr")}>Buka tasbih</Button></div>
       </Card>
       {drafts.length > 0 && <div className="space-y-2"><h3 className="text-sm font-medium">Belum selesai bercerita</h3>{drafts.map((draft) => <Link key={draft.id} href={`/history/write?id=${encodeURIComponent(draft.id)}`} className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-dashed border-accent/40 p-3 text-left text-sm"><span className="min-w-0 truncate">{draft.title || (draft.kind === "dhikr" ? `${draft.dhikr} · ${draft.count} kali` : draft.body || "Draf cerita")}</span><span className="shrink-0 text-accent">Lanjutkan</span></Link>)}</div>}
     </>}
 
     {!editorOnly && <><div className="space-y-3">
       <div className="flex items-center justify-between"><h2 className="font-serif text-xl">Jejak hari-harimu</h2><button onClick={exportJournal} className="min-h-11 px-2 text-xs text-accent">Ekspor jurnal</button></div>
+      <div className="flex gap-2"><button aria-pressed={onlyToday} onClick={() => setOnlyToday(true)} className={cx("min-h-11 rounded-xl px-4 text-sm", onlyToday ? "bg-accent text-accent-fg" : "bg-surface-2 text-muted")}>Hari ini</button><button aria-pressed={!onlyToday} onClick={() => setOnlyToday(false)} className={cx("min-h-11 rounded-xl px-4 text-sm", !onlyToday ? "bg-accent text-accent-fg" : "bg-surface-2 text-muted")}>Jelajahi catatan</button></div>
       <div className="grid grid-cols-[1fr_auto] gap-2"><input aria-label="Cari cerita" type="search" placeholder="Cari cerita, perasaan..." className={field} value={query} onChange={(e) => setQuery(e.target.value)} /><select aria-label="Bulan jurnal" className={`${field} max-w-36`} value={month} onChange={(e) => setMonth(e.target.value)}><option value="">Semua bulan</option>{months.map((m) => <option key={m} value={m}>{new Intl.DateTimeFormat("id-ID", { month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${m}-01T12:00:00Z`))}</option>)}</select></div>
       <div className="flex flex-wrap gap-1.5">{kinds.map((item) => <button key={item.key} aria-pressed={kind === item.key} onClick={() => setKind(item.key)} className={cx("min-h-11 rounded-full px-3 text-xs", kind === item.key ? "bg-accent text-accent-fg" : "bg-surface-2 text-muted")}>{item.label}</button>)}<button aria-pressed={starred} onClick={() => setStarred(!starred)} className={cx("min-h-11 rounded-full px-3 text-xs", starred ? "bg-accent text-accent-fg" : "bg-surface-2 text-muted")}>Disimpan</button></div>
     </div>
@@ -126,7 +128,7 @@ export function SpiritualJournal({ today, onPrayer, editorOnly = false, entryId,
           <div className="flex items-start justify-between gap-2"><div><p className="text-[11px] uppercase tracking-wider text-accent">{item.kind === "prayer" ? "Seusai shalat" : item.kind === "dhikr" ? "Momen dzikir" : "Cerita pribadi"}{item.entry?.prayer ? ` · ${PRAYER_LABEL[item.entry.prayer]}` : ""}</p><h4 className="mt-1 font-serif text-xl">{item.title}</h4></div>{item.entry && <button aria-label={item.entry.starred ? "Lepas penanda cerita" : "Tandai cerita berkesan"} aria-pressed={item.entry.starred} onClick={() => write({ ...item.entry!, starred: !item.entry!.starred })} className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-xl text-accent">{item.entry.starred ? "★" : "☆"}</button>}</div>
           {item.kind === "dhikr" && <p className="mt-2 text-sm text-accent">{item.entry?.dhikr} · {item.entry?.count} kali</p>}
           {item.log && <p className="mt-2 text-xs text-muted">{item.log.missed ? "Terlewat, masih ada kesempatan untuk melanjutkan." : "Shalat sudah tercatat."}</p>}
-          {item.body && <p className="mt-3 line-clamp-4 whitespace-pre-wrap break-words text-sm leading-relaxed text-muted">{item.body}</p>}
+          {item.body && <p className="mt-3 line-clamp-3 whitespace-pre-wrap break-words text-[15px] leading-7 text-muted">{item.body}</p>}
           {item.entry?.gratitude && <p className="mt-3 border-l-2 border-accent/40 pl-3 text-sm leading-relaxed text-muted"><span className="block text-xs text-accent">Yang kusyukuri</span>{item.entry.gratitude}</p>}
           {item.entry?.nextStep && <p className="mt-3 text-sm text-muted"><span className="block text-xs text-accent">Langkah berikutnya</span>{item.entry.nextStep}</p>}
           <div className="mt-3 flex items-center justify-between gap-2"><span className="text-xs text-accent">{item.mood ? PRAYER_MOOD_LABEL[item.mood] : ""}</span><div>{item.entry && <button className="min-h-11 px-2 text-xs text-muted" onClick={() => { if (confirm("Hapus catatan ini? Kamu bisa mengurungkannya.")) remove(item.entry!); }}>Hapus</button>}<button onClick={() => { if (item.log) onPrayer?.(item.log); else if (item.entry) router.push(`/history/write?id=${encodeURIComponent(item.entry.id)}`); }} className="min-h-11 px-2 text-xs text-muted">{item.log ? "Detail shalat" : "Buka / edit"}</button></div></div>

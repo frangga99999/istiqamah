@@ -9,6 +9,7 @@ import { AIAdvice } from "@/components/ai-advice";
 import { useNow } from "@/lib/use-now";
 
 const statusLabels: Record<FastingLog["status"], string> = { planned: "Direncanakan", fasting: "Sedang puasa", completed: "Selesai", skipped: "Tidak berpuasa" };
+const restLabels = { refreshed: "Segar", okay: "Biasa saja", tired: "Masih lelah" } as const;
 
 export function FastingTracker() {
   const state = useApp();
@@ -16,7 +17,6 @@ export function FastingTracker() {
   const [selected, setSelected] = useState("");
   const [calendarMonth, setCalendarMonth] = useState("");
   const [error, setError] = useState("");
-  const [sleep, setSleep] = useState("7");
   const [activity, setActivity] = useState("ringan");
   const [health, setHealth] = useState("Tidak ada kondisi khusus yang diketahui");
   const [food, setFood] = useState("");
@@ -31,6 +31,7 @@ export function FastingTracker() {
   const padding = (first.getUTCDay() + 6) % 7;
   const monthLabel = new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" }).format(first);
   const log = state.fastingLogs[date];
+  const sleep = log?.sleep_hours === undefined ? "" : String(log.sleep_hours);
   const todaySchedule = scheduleForDay(state.settings, now);
   const beforeFajr = now < new Date(todaySchedule.times.fajr);
   const afterMaghrib = now >= new Date(todaySchedule.times.maghrib);
@@ -39,7 +40,7 @@ export function FastingTracker() {
   const label = (day: string) => new Intl.DateTimeFormat("id-ID", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${day}T12:00:00Z`));
   function save(patch: Partial<FastingLog>) {
     const latest = getState().fastingLogs[date];
-    try { saveFastingLog({ date, status: latest?.status ?? "planned", note: latest?.note ?? "", ...patch }); setError(""); }
+    try { saveFastingLog({ ...latest, date, status: latest?.status ?? "planned", note: latest?.note ?? "", ...patch }); setError(""); }
     catch { setError("Catatan puasa belum tersimpan. Coba lagi."); }
   }
   function moveMonth(direction: number) {
@@ -70,18 +71,24 @@ export function FastingTracker() {
       return <button key={status} disabled={disabled} aria-pressed={log?.status === status} onClick={() => save({ status })} className={cx("min-h-11 rounded-xl border p-2 text-sm disabled:opacity-35", log?.status === status ? "border-accent bg-accent-soft text-accent" : "border-border text-muted")}>{text}</button>;
     })}</div>
     {date === today && !afterMaghrib && <p className="mt-2 text-xs text-muted">Tanda selesai tersedia setelah Maghrib.</p>}
+    <div className="mt-4 rounded-2xl bg-accent-soft/40 p-4">
+      <h3 className="font-medium">Istirahat sebelum puasa</h3><p className="mt-1 text-xs leading-relaxed text-muted">Catat total tidur malam sebelum {label(date)}, termasuk tidur kembali setelah sahur.</p>
+      {date <= today ? <><form key={date} className="mt-3 flex items-end gap-2" onSubmit={(event) => { event.preventDefault(); const value = String(new FormData(event.currentTarget).get("sleep") ?? "").trim(); if (value && (!Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > 24)) { setError("Isi durasi tidur antara 0 dan 24 jam."); return; } save({ sleep_hours: value ? Number(value) : undefined }); }}><label className="min-w-0 flex-1 text-xs text-muted">Total tidur (jam)<input name="sleep" aria-label="Total tidur sebelum puasa" type="number" min="0" max="24" step="0.5" defaultValue={sleep} placeholder="Misalnya 6.5" className="mt-1 w-full rounded-xl border border-border bg-surface p-3 text-sm" /></label><button className="min-h-11 rounded-xl bg-accent px-4 text-sm text-accent-fg">Simpan</button></form>
+      <fieldset className="mt-3"><legend className="text-xs text-muted">Saat bangun, tubuh terasa...</legend><div className="mt-2 flex flex-wrap gap-2">{(Object.entries(restLabels) as [NonNullable<FastingLog["rested"]>, string][]).map(([value, text]) => <button key={value} aria-pressed={log?.rested === value} onClick={() => save({ rested: log?.rested === value ? undefined : value })} className={cx("min-h-11 rounded-full border px-3 text-xs", log?.rested === value ? "border-accent bg-accent text-accent-fg" : "border-border bg-surface text-muted")}>{text}</button>)}</div></fieldset>
+      <p role="status" className="mt-3 text-xs text-accent">{sleep ? `${sleep} jam tersimpan${log?.rested ? ` · ${restLabels[log.rested]}` : ""}` : "Durasi tidur belum dicatat"}</p></> : <p className="mt-3 text-sm text-muted">Catatan tidur tersedia pada tanggal ini. Untuk sekarang, rencanakan waktu istirahat sebelum sahur.</p>}
+    </div>
     <details key={date} className="mt-3"><summary className="cursor-pointer py-2 text-sm text-muted">Catatan singkat {log?.note ? "· tersimpan" : "(opsional)"}</summary><textarea aria-label="Catatan puasa" defaultValue={log?.note ?? ""} rows={2} maxLength={500} onBlur={(e) => save({ note: e.target.value })} placeholder="Bagaimana rasanya hari ini?" className="mt-2 w-full rounded-xl border border-border bg-surface-2 p-3 text-sm" /></details>
     {error && <p role="alert" className="mt-2 text-sm text-warn">{error}</p>}
     <details className="mt-4 border-t border-border pt-3"><summary className="cursor-pointer py-2 text-sm font-medium">Nutrisi, istirahat & pendamping AI</summary>
       <p className="mt-2 text-xs leading-relaxed text-muted">Panduan umum untuk dewasa. Jika sedang sakit, memiliki kondisi medis, hamil/menyusui, atau memakai obat rutin, konsultasikan rencana puasa dengan tenaga kesehatan.</p>
-      <div className="mt-3 grid grid-cols-2 gap-3"><label className="text-xs text-muted">Tidur semalam (jam)<input type="number" min="0" max="24" step="0.5" value={sleep} onChange={(e) => setSleep(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-surface-2 p-3 text-sm" /></label><label className="text-xs text-muted">Aktivitas hari ini<select value={activity} onChange={(e) => setActivity(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-surface-2 p-3 text-sm"><option>ringan</option><option>sedang</option><option>berat</option></select></label></div>
+      <div className="mt-3"><label className="text-xs text-muted">Aktivitas<select value={activity} onChange={(e) => setActivity(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-surface-2 p-3 text-sm"><option>ringan</option><option>sedang</option><option>berat</option></select></label></div>
       <label className="mt-3 block text-xs text-muted">Kondisi umum<select value={health} onChange={(e) => setHealth(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-surface-2 p-3 text-sm"><option>Tidak ada kondisi khusus yang diketahui</option><option>Ada kondisi medis / obat rutin / hamil atau menyusui</option><option>Sedang tidak sehat</option></select></label>
       <label className="mt-3 block text-xs text-muted">Preferensi makanan / alergi (opsional)<input value={food} maxLength={300} onChange={(e) => setFood(e.target.value)} placeholder="Misalnya: vegetarian, alergi kacang" className="mt-1 w-full rounded-xl border border-border bg-surface-2 p-3 text-sm" /></label>
       {health !== "Tidak ada kondisi khusus yang diketahui" && <p className="my-3 rounded-xl bg-warn-soft p-3 text-sm text-warn">Utamakan kesehatan. AI tidak dapat menentukan apakah kamu aman berpuasa. Bila merasa sakit, hentikan puasa dan cari bantuan medis; gejala berat memerlukan bantuan segera.</p>}
-      <div className="mt-3">{sleep.trim() && Number.isFinite(Number(sleep)) && Number(sleep) >= 0 && Number(sleep) <= 24 ? <AIAdvice key={`${date}:${sleep}:${activity}:${health}:${food}:${log?.status}`} mode="fasting" context={{ sleep, activity, health, food, status: log?.status ?? "belum direncanakan" }} /> : <p className="text-xs text-warn">Isi waktu tidur antara 0 dan 24 jam untuk meminta saran.</p>}</div>
+      <div className="mt-3"><AIAdvice key={`${date}:${sleep}:${activity}:${health}:${food}:${log?.status}`} mode="fasting" context={{ ...(sleep ? { sleep } : {}), activity, health, food, status: log?.status ?? "belum direncanakan" }} /></div>
       <div className="mt-4 space-y-2 text-sm leading-relaxed text-muted"><p className="font-medium text-text">Pegangan sederhana · bukan hasil AI</p><p>Sahur: padukan sumber protein, karbohidrat berserat, sayur atau buah. Berbuka secukupnya dan bagi waktu minum dari berbuka sampai sahur.</p><p>Jaga waktu tidur dengan merencanakan jam istirahat sebelum sahur. Pilih aktivitas ringan sesuai kondisi tubuh.</p><p>Sisihkan satu momen untuk dzikir, rasa syukur, atau membantu seseorang. Tidak perlu mengejar banyak target sekaligus.</p><p className="text-xs">Rujukan: <a className="underline" href="https://www.who.int/bangladesh/news/detail/28-05-2017-stay-healthy-during-ramadan" target="_blank" rel="noreferrer">WHO</a> · <a className="underline" href="https://www.nelft.nhs.uk/news-events/staying-healthy-during-ramadan-15955" target="_blank" rel="noreferrer">NHS</a></p></div>
     </details>
-    <details className="mt-3 border-t border-border pt-3"><summary className="cursor-pointer py-2 text-sm">Riwayat puasa ({history.length})</summary><div className="mt-2 space-y-2">{history.length ? history.map((entry) => <div key={entry.date} className="rounded-xl bg-surface-2 p-3 text-sm"><div className="flex justify-between gap-2"><span>{label(entry.date)}</span><span className="text-accent">{statusLabels[entry.status]}</span></div>{entry.note && <p className="mt-1 break-words text-xs text-muted">{entry.note}</p>}</div>) : <p className="text-sm text-muted">Belum ada catatan puasa.</p>}</div></details>
+    <details className="mt-3 border-t border-border pt-3"><summary className="cursor-pointer py-2 text-sm">Riwayat puasa ({history.length})</summary><div className="mt-2 space-y-2">{history.length ? history.map((entry) => <div key={entry.date} className="rounded-xl bg-surface-2 p-3 text-sm"><div className="flex justify-between gap-2"><span>{label(entry.date)}</span><span className="text-accent">{statusLabels[entry.status]}</span></div>{entry.sleep_hours !== undefined && <p className="mt-2 text-xs text-accent">Tidur {entry.sleep_hours} jam{entry.rested ? ` · ${restLabels[entry.rested]}` : ""}</p>}{entry.note && <p className="mt-1 break-words text-xs text-muted">{entry.note}</p>}</div>) : <p className="text-sm text-muted">Belum ada catatan puasa.</p>}</div></details>
     <p className="mt-3 text-xs leading-relaxed text-muted">Puasa sunnah bersifat pilihan. Periksa kalender setempat; jangan berpuasa pada Idulfitri, Iduladha, dan hari tasyrik. Data disimpan di perangkat ini.</p>
   </Card>;
 }

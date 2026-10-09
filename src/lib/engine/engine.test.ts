@@ -8,7 +8,7 @@ import { prayerState } from "@/lib/prayer/state";
 import { dhuhaWindow, DEFAULT_SETTINGS, localDateKey } from "@/lib/prayer/times";
 import { hasJournalContent, journalTimeline, tasbihBead } from "@/lib/journal";
 import type { JournalEntry } from "@/lib/types";
-import { getState, saveJournalEntry, removeJournalEntry, restoreSnapshot } from "@/lib/store";
+import { getState, saveJournalEntry, removeJournalEntry, restoreSnapshot, saveFastingLog } from "@/lib/store";
 import { reflectionWindow, fastingDates, isMondayThursday } from "@/lib/wellbeing";
 import { validRequest, validResult } from "@/lib/wellbeing-contract";
 
@@ -142,6 +142,11 @@ const fastingAnswer = { questions: [], reflection: "", nutrition: "Sahur seimban
 ok(validResult(fastingAnswer, "fasting") && !validResult(fastingAnswer, "questions"), "unused questions can be empty for fasting but the daily modal requires two");
 Object.defineProperty(globalThis, "localStorage", { configurable: true, value: { getItem: (key: string) => memory.get(key) ?? null, removeItem: (key: string) => memory.delete(key), setItem: (key: string, value: string) => memory.set(key, value) } });
 const { hydrated: _hydrated, ...snapshot } = getState();
+saveFastingLog({ date: "2026-10-08", status: "completed", note: "Uji", sleep_hours: 6.5, rested: "okay" });
+ok(JSON.parse(memory.get("ps.fasting-logs")!)["2026-10-08"].sleep_hours === 6.5, "sleep persists with the fasting record");
+assert.throws(() => saveFastingLog({ date: "2026-10-08", status: "completed", note: "", sleep_hours: NaN }));
+assert.throws(() => saveFastingLog({ date: "2026-10-08", status: "completed", note: "", sleep_hours: 25 }));
+ok(getState().fastingLogs["2026-10-08"].sleep_hours === 6.5, "invalid sleep leaves the saved record intact");
 void _hydrated;
 assert.throws(() => restoreSnapshot({ ...snapshot, logs: {} }));
 ok(Array.isArray(getState().logs), "malformed restore leaves current prayer logs intact");

@@ -2,15 +2,20 @@ import { getState, subscribeStore } from "@/lib/store";
 
 export const vpsConfigured = Boolean(process.env.NEXT_PUBLIC_VPS_API_URL);
 const endpoint = process.env.NEXT_PUBLIC_VPS_API_URL ?? "";
-export function vpsConnected() { return typeof window !== "undefined" && Boolean(localStorage.getItem("ps.vps-session")); }
+export function vpsConnected() { try { return typeof window !== "undefined" && Boolean(localStorage.getItem("ps.vps-session")); } catch { return false; } }
 
 export async function vpsRequest(path: string, body: unknown) {
   if (!vpsConfigured) throw new Error("Koneksi belum tersedia di versi ini. Muat ulang aplikasi untuk memperbarui.");
-  const token = localStorage.getItem("ps.vps-session");
+  let token: string | null;
+  try { token = localStorage.getItem("ps.vps-session"); }
+  catch { throw new Error("Penyimpanan browser tidak tersedia. Buka aplikasi di Safari atau Chrome biasa, lalu hubungkan akses pribadi."); }
   if (!token && path !== "/connect") throw new Error("Hubungkan akses pribadi untuk memakai AI.");
   let response: Response;
-  try { response = await fetch(endpoint + path, { method: "POST", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body), signal: AbortSignal.timeout(55_000) }); }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 55_000);
+  try { response = await fetch(endpoint + path, { method: "POST", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body), signal: controller.signal }); }
   catch { throw new Error("Koneksi terputus atau respons terlalu lama. Periksa internet, lalu coba kirim lagi."); }
+  finally { clearTimeout(timer); }
   if (response.status === 401 && token) { localStorage.removeItem("ps.vps-session"); window.dispatchEvent(new Event("vps-status")); }
   if (!response.ok) throw new Error(response.status === 401 ? "Akses pribadi perlu dihubungkan kembali." : response.status === 429 ? "Batas permintaan tercapai. Coba lagi nanti." : "AI belum merespons. Catatan di perangkat tetap tersedia.");
   return response.json();

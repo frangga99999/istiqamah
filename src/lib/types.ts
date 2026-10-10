@@ -28,7 +28,7 @@ export type RiskLevel = "LOW" | "MEDIUM" | "HIGH" | "VERY_HIGH";
 
 // PRD §27 — where/how the prayer was performed.
 export type PerformedLocation = "mosque" | "congregation" | "alone";
-export type PrayerMood = "calm" | "grateful" | "relieved" | "energized" | "sad" | "anxious";
+export type PrayerMood = "calm" | "grateful" | "relieved" | "energized" | "sad" | "anxious" | "happy" | "angry" | "disappointed" | "lonely" | "hopeful" | "overwhelmed";
 
 export const PRAYER_MOOD_LABEL: Record<PrayerMood, string> = {
   calm: "Tenang",
@@ -37,6 +37,12 @@ export const PRAYER_MOOD_LABEL: Record<PrayerMood, string> = {
   energized: "Bersemangat",
   sad: "Sedih",
   anxious: "Cemas",
+  happy: "Senang",
+  angry: "Marah",
+  disappointed: "Kecewa",
+  lonely: "Kesepian",
+  hopeful: "Penuh harap",
+  overwhelmed: "Kewalahan",
 };
 
 // PRD §34 — starting assistance derived from onboarding.

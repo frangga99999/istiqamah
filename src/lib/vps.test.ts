@@ -13,6 +13,9 @@ async function main() {
   await assert.rejects(vpsRequest("/chat", {}), /dihubungkan kembali/);
   assert.equal(values.has("ps.vps-session"), false);
   values.set("ps.vps-session", "test-session");
+  Object.defineProperty(AbortSignal, "timeout", { value: undefined, configurable: true });
+  globalThis.fetch = async (_url, options) => { assert.ok(options?.signal instanceof AbortSignal); return Response.json({ reply: "terhubung" }); };
+  assert.equal((await vpsRequest("/chat", {})).reply, "terhubung", "Older mobile browsers do not require AbortSignal.timeout");
   globalThis.fetch = async () => { throw new TypeError("network"); };
   await assert.rejects(vpsRequest("/chat", {}), /Periksa internet/);
   console.log("VPS recovery checks passed");

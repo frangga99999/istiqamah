@@ -25,7 +25,7 @@ export function AIConnection() {
   }
   return <div className="rounded-xl border border-border bg-surface p-3 text-sm">
     {connected ? <details><summary className="min-h-11 cursor-pointer py-3 text-xs text-accent">Akses pribadi · Periksa koneksi</summary><Button variant="secondary" className="w-full" disabled={busy} onClick={test}>{busy ? "Menguji koneksi..." : "Uji koneksi"}</Button></details> : <form onSubmit={(e) => { e.preventDefault(); void test(); }} className="space-y-3">
-      <p className="font-medium">Hubungkan ruang ceritamu</p><p className="text-xs leading-relaxed text-muted">Akses hanya untukmu. Masuk sekali di perangkat ini, tanpa pengaturan server.</p>
+      <p className="font-medium">Hubungkan perangkat ini</p><p className="text-xs leading-relaxed text-muted">Masukkan kode akses pribadimu. Handphone dan komputer perlu dihubungkan masing-masing.</p>
       <label className="block text-xs text-muted">Kode akses pribadi<input type="password" autoComplete="off" value={code} onChange={(e) => setCode(e.target.value)} className="mt-2 w-full rounded-xl border border-border bg-surface-2 p-3 text-sm" /></label>
       <Button className="w-full" disabled={busy || !code.trim()}>{busy ? "Menghubungkan..." : "Hubungkan & uji"}</Button>
     </form>}

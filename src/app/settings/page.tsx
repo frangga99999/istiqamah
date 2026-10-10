@@ -238,7 +238,7 @@ function SwitchRow({
 
 // Toggle: knob is an in-flow flex child positioned by padding + a bounded slide.
 // No absolute/border-box math, so it can never overlap the track edge.
-export function Switch({
+function Switch({
   on,
   onChange,
   label,

@@ -101,9 +101,7 @@ export default function TodayPage() {
             <p className="mt-2 text-sm text-warn">
               Belum tercatat. Prioritaskan shalat sebelum melanjutkan aktivitas.
             </p>
-          ) : view.hero.isNow ? (
-            <p className="mt-2 text-sm text-muted">Silakan tunaikan, lalu catat.</p>
-          ) : view.prepInMinutes > 0 ? (
+          ) : view.hero.isNow ? null : view.prepInMinutes > 0 ? (
             <p className="mt-2 text-sm text-muted">
               Mulai bersiap dalam{" "}
               <span className="tabular font-medium text-text">{view.prepInMinutes} menit</span>
